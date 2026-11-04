@@ -85,6 +85,9 @@ def load_providers() -> dict[str, ProviderCfg]:
     for name, p in data.items():
         base_url = p["base_url"]
         origin = "{0.scheme}://{0.netloc}".format(urlsplit(base_url))
+        # Offline-test hook: OPROXY_{NAME}_ORIGIN overrides the upstream origin
+        # (used by the offline smoke test to point a provider at the mock).
+        origin = os.environ.get(f"OPROXY_{name.upper()}_ORIGIN", origin)
         if name == "baseten":
             model = os.environ.get(p.get("model_env", "BASETEN_MODEL")) or p["model_default"]
         else:

@@ -190,3 +190,56 @@ history proves the order of decisions.
   agent rounds but is reported as a limitation anyway.
 - **Effect on next step:** Wire OpenCode's baseURL at proxy; build outer loop.
 - **Surprises:** none — overhead is tiny and parsing matched expectations.
+
+---
+
+## 2026-11-04 04:35 UTC — Step 4: OpenCode headless + harness
+
+### OpenCode investigation (opencode-ai 0.4.45, pinned in package.json)
+- **Observed (empirically, offline against a mock upstream):**
+  - `opencode run "<msg>"` runs headlessly and exits — **but only if stdin is
+    /dev/null**. With an open stdin it blocks forever after logging startup args
+    (this cost real debugging time; confirmed the fix repeatably).
+  - `--continue` continues the project's last session → genuine SAME-session
+    follow-up (round 1 carried 4 messages vs round 0's 3, proving context carry).
+  - Custom provider via `@ai-sdk/openai-compatible` + `options.baseURL` works;
+    the Baseten slug with slashes (`deepseek-ai/DeepSeek-V4.1-Flash-1017-Fast`)
+    routes correctly and is forwarded verbatim as the API `model`.
+  - `permission: {edit, bash, webfetch: "allow"}` auto-approves — no prompts.
+- **Instruction correction (logged per hard rule):** the prompt suggested
+  `OPENCODE_CONFIG_CONTENT`. That env var does **not** exist in 0.4.45 — the
+  binary exposes `OPENCODE_CONFIG` (a path) and `OPENCODE_PERMISSION`. Chosen
+  faithful alternative: write a per-run `opencode.json` and point `OPENCODE_CONFIG`
+  at it. Same effect (isolated per-run config, no global leak), different
+  mechanism.
+- **Cosmetic error:** against the mock, OpenCode prints a post-response
+  `DecimalError: Invalid argument: [object Object]` (its internal cost calc on the
+  mock's usage shape) yet still exits 0 and delivers content. Flagged to re-check
+  in the real-provider smoke (preflight step 5); treated as non-fatal.
+- **Decision:** Launch via subprocess with `stdin=DEVNULL`, own process group
+  (clean timeout kill), per-run `OPENCODE_CONFIG`. Follow-ups via `--continue`
+  (same-session requirement satisfied — no fallback needed).
+
+### Model settings mechanism
+- **Observed:** The proxy can already inject identical temperature/max_tokens/
+  reasoning_effort on both arms and record them.
+- **Decision:** Keep `PROXY_INJECT_PARAMS=1` as the source of truth so both arms
+  are provably identical regardless of what OpenCode emits; recorded per call in
+  `request_params._injected`. (Satisfies HARNESS point 4's fallback as the
+  primary mechanism.)
+
+### Harness structure
+- Built `harness/common.py` (paths, per-run opencode config, git, run plan),
+  `proxy_manager.py` (start/stop proxy child, health-gated), `launcher.py`
+  (one round), `outer_loop.py` (pilot), `preflight.py`, and `analyze.py`.
+- **Run plan:** 3 C/B pairs, each pair order shuffled from a recorded seed
+  (`PILOT_SEED`, default 20261103 → `['baseten','coral']×3`), strictly sequential.
+- **Outcomes:** accepted | round_cap | timeout | agent_error | provider_error,
+  one per run; failed runs always written to runs.jsonl.
+- **Spend guard:** cumulative `cost_usd_public` across calls.jsonl; pilot aborts
+  before the next run if it exceeds $5.
+- **analyze.py** degrades honestly: with no pilot data it writes the banner,
+  method, measured proxy overhead, and limitations, and leaves every unmeasured
+  metric blank (never 0) — verified by running it now.
+- **Surprises:** The stdin-blocking behavior of `opencode run` was the single
+  biggest gotcha; nothing in `--help` hints at it.
