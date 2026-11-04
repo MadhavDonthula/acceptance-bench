@@ -1,0 +1,36 @@
+# Provider configuration for acceptance-bench.
+#
+# Public list prices are recorded here with the date they were captured.
+# Cost is ALWAYS reported at these public list prices for BOTH providers, so the
+# two arms are compared on the same price sheet. See the limitations section in
+# results/SUMMARY.md: the operator's own Coral account may be on grandfathered
+# pricing, which is deliberately NOT used here.
+
+price_date = "2026-11-03"
+
+# Identical model settings applied to BOTH arms (see DECISION_LOG).
+[model_settings]
+temperature = 0.0
+max_tokens = 8192
+reasoning_effort = "high"
+
+[providers.coral]
+base_url = "https://inference.coralbricks.ai/v1"
+api_key_env = "CORALBRICKS_API_KEY"
+model = "deepseek-v4.1-flash-fast"
+# per 1,000,000 tokens, USD, public list prices as of price_date
+price_input = 0.45
+price_cached_read = 0.009
+price_output = 1.80
+
+[providers.baseten]
+base_url = "https://inference.baseten.co/v1"
+api_key_env = "BASETEN_API_KEY"
+# model is read from the BASETEN_MODEL env var at runtime; this is the default
+# that is used (with a loud warning) if the env var is unset.
+model_env = "BASETEN_MODEL"
+model_default = "deepseek-ai/DeepSeek-V4.1-Flash-1017-Fast"
+# per 1,000,000 tokens, USD, public list prices as of price_date
+price_input = 0.60
+price_cached_read = 0.014
+price_output = 2.40

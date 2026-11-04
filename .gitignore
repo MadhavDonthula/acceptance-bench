@@ -1,0 +1,15 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+build/
+dist/
+# Benchmark run artifacts contain full transcripts / workspaces; keep them local.
+runs/
+results/raw/
+results/preflight/
+results/charts/
+node_modules/
+.opencode/

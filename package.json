@@ -1,0 +1,8 @@
+{
+  "name": "acceptance-bench-harness",
+  "private": true,
+  "description": "Pins the OpenCode CLI used as the benchmark harness.",
+  "dependencies": {
+    "opencode-ai": "^0.4.0"
+  }
+}
