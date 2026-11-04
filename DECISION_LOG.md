@@ -243,3 +243,35 @@ history proves the order of decisions.
   metric blank (never 0) — verified by running it now.
 - **Surprises:** The stdin-blocking behavior of `opencode run` was the single
   biggest gotcha; nothing in `--help` hints at it.
+
+---
+
+## 2026-11-04 04:45 UTC — Step 5: preflight (BLOCKED on credentials)
+
+### Preflight result
+- **Observed:** Ran `make preflight`. Step 1 (keys + GET /v1/models) FAILED and
+  the preflight STOPPED as designed:
+  - **coral:** `/v1/models` → **HTTP 401**. The only CoralBricks key on this
+    machine is in `~/code/coral-probe/.env`, and it is literally the example
+    placeholder `cb_your_key_here` (16 chars, `cb_` prefix) — never filled with a
+    real key. So there is no valid Coral credential.
+  - **baseten:** no `BASETEN_API_KEY` present anywhere.
+- **Options:** (a) fabricate/stub numbers to "complete" the pilot — FORBIDDEN by
+  the hard rules; (b) stop at preflight and report that real keys are required.
+- **Decision:** (b). The benchmark is fully built and validated **offline** (task
+  + judge proven; proxy recording + overhead measured; OpenCode headless loop,
+  same-session follow-ups, auto-approve, and both-provider routing all exercised
+  through the proxy against a mock). It cannot run against real providers until
+  the operator puts valid `CORALBRICKS_API_KEY` and `BASETEN_API_KEY` in `.env`.
+  No pilot numbers are produced; `analyze.py` emits the banner + method +
+  measured proxy overhead + limitations with every unmeasured metric left blank.
+- **Effect on next step:** Hand back to the operator. Once real keys are in
+  `.env`, `make preflight` will run steps 2–5 (incl. the Baseten rate-limit check
+  and the snapshot-match warning), then — on go-ahead — `make pilot`.
+- **Snapshot-match (unresolved confound, pre-registered):** Baseten defaults to
+  `deepseek-ai/DeepSeek-V4.1-Flash-1017-Fast` (the Oct-17 snapshot) per the spec's
+  instruction when the match is unknown. Preflight prints the slug; the true
+  weight-snapshot identity vs Coral's `deepseek-v4.1-flash-fast` cannot be
+  confirmed from model listings and is logged as a confound in SUMMARY.
+- **Surprises:** The Coral key that looked available was the unfilled example
+  placeholder — so BOTH arms are blocked on credentials, not just Baseten.
