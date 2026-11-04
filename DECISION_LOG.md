@@ -149,3 +149,44 @@ history proves the order of decisions.
 - **Surprises:** The starter happens to PASS check 5 (no-key -> distinct
   charges) and check 7 (hygiene) as expected, so the only reason it's rejected
   is the missing idempotency + list endpoint — exactly the ticket's ask.
+
+---
+
+## 2026-11-04 04:05 UTC — Step 3: recording proxy
+
+### Path routing
+- **Observed:** OpenCode appends `/chat/completions` to its baseURL. With baseURL
+  `.../{provider}/{run_id}/{round}/v1`, requests arrive as
+  `/{provider}/{run_id}/{round}/v1/chat/completions`.
+- **Decision:** Proxy strips the `{provider}/{run_id}/{round}` prefix and forwards
+  to the provider ORIGIN (scheme+host from providers.toml) + the `/v1/...`
+  remainder, preserving the query string. Headers forwarded unchanged except
+  Authorization (set from .env), Host, and length/hop-by-hop headers.
+- **Effect on next step:** OpenCode config just needs one baseURL per run/round.
+
+### Untouched streaming + usage tee
+- **Observed:** Need to stream bytes back untouched AND parse usage/timing.
+- **Decision:** Forward `response.aiter_raw()` bytes verbatim; tee a decoded copy
+  into an SSE parser that records first-byte, first-token, last-token, and the
+  final `usage` block. Only allowed request mutations: add
+  `stream_options.include_usage=true` if missing, and (PROXY_INJECT_PARAMS=1,
+  default on) inject identical temperature=0 / max_tokens=8192 /
+  reasoning_effort=high on both arms. Exactly what was sent is recorded under
+  `request_params` (incl. `_injected` + `_body_modified`).
+- **Effect on next step:** Decide in Step 4 whether OpenCode can set these itself;
+  if so, flip PROXY_INJECT_PARAMS off. Either way both arms get identical values.
+- **Surprises:** none.
+
+### Offline validation + overhead
+- **Observed:** Built `proxy/mock_upstream.py` (OpenAI-compatible SSE with
+  cached-token usage). Ran `proxy/overhead.py`: 20 identical tiny streaming
+  requests, direct vs through the proxy, against the mock (isolates proxy cost,
+  no spend).
+- **Result:** direct median 9.23 ms, proxy median 11.47 ms -> **~2.23 ms median
+  proxy overhead** per call. Recorded call line verified: cached=800/uncached=200,
+  cache_field=`prompt_tokens_details.cached_tokens`, cost=$0.0001062 (matches
+  200·0.45+800·0.009+5·1.80 per-M), TTFT/decode captured, injection recorded.
+- **Decision:** Proxy accepted. Overhead (~2 ms) is negligible vs multi-second
+  agent rounds but is reported as a limitation anyway.
+- **Effect on next step:** Wire OpenCode's baseURL at proxy; build outer loop.
+- **Surprises:** none — overhead is tiny and parsing matched expectations.
