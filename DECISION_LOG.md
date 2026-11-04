@@ -101,9 +101,51 @@ history proves the order of decisions.
 - **Surprises:** No Baseten key is provisioned yet. The benchmark is built to be
   ready, but the Baseten arm cannot run until a key is added to `.env`.
 
-### Copied usage parser
+### Copied usage parser (continued)
 - **Observed:** `coralprobe/usage.py` already normalizes usage across Chat
   Completions / Responses / Anthropic / DeepSeek-native shapes.
 - **Decision:** Copy it verbatim into `proxy/usage.py` to avoid drift.
 - **Effect on next step:** Proxy uses it to parse cached/uncached/output/reasoning.
 - **Surprises:** none.
+
+---
+
+## 2026-11-04 03:52 UTC — Step 2: task, reference, judge
+
+### Task design
+- **Observed:** Need a custom repo (not memorizable) where the starter FAILS and
+  a reference PASSES. Built `tasks/payments_idempotency/`: FastAPI + SQLite
+  charges/refunds service (~330 lines incl. tests), visible pytest suite (9
+  tests, ~0.2s), bug = retries create duplicate charges.
+- **Decision:** Drive all hidden checks at the HTTP boundary via Starlette
+  TestClient, importing the same `payments.app:create_app` contract that the
+  visible suite pins. This keeps the checks robust to internal refactors while
+  staying fair (the agent must keep the visible suite green anyway).
+- **Effect on next step:** Hidden tests are self-contained (own temp DB, own
+  seeded customer); the judge runs them in an isolated throwaway copy.
+- **Surprises:** none.
+
+### Concurrency check determinism (check 4)
+- **Observed:** SQLite under concurrent writers from TestClient's threadpool can
+  hit "database is locked" and be nondeterministic/slow.
+- **Options:** (a) rely on a UNIQUE constraint + catch IntegrityError;
+  (b) serialize same-key requests with an in-process per-key lock.
+- **Decision:** Reference uses a per-key `threading.Lock` (FastAPI sync endpoints
+  share one process) so only one racing retry writes; the rest read the stored
+  charge. A UNIQUE constraint on `idempotency_keys.key` + IntegrityError
+  fallback is kept as defense-in-depth. Check 4 uses a `threading.Barrier` to
+  release 10 requests together.
+- **Effect on next step:** Concurrency check is deterministic and fast (~0.15s).
+- **Surprises:** none.
+
+### Verify result (proving the judge)
+- **Observed:** `judge.verify_task`: STARTER rejected at check 2 (passes 1,5,7;
+  fails 2,3,4,6), REFERENCE accepted (all 7 pass). Total judge runtime 1.21s
+  (starter 0.66s + reference 0.54s), comfortably under the 10s budget.
+- **Decision:** Judge accepted as the acceptance oracle. First-failing-check
+  feedback is returned one problem per round, in priority order.
+- **Effect on next step:** Build the recording proxy, then wire the outer loop
+  to call this judge after each round.
+- **Surprises:** The starter happens to PASS check 5 (no-key -> distinct
+  charges) and check 7 (hygiene) as expected, so the only reason it's rejected
+  is the missing idempotency + list endpoint — exactly the ticket's ask.

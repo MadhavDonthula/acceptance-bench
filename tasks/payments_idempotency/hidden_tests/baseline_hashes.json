@@ -1,0 +1,12 @@
+{
+  "protected_files": {
+    "tests/test_payments.py": "ce987d6dd1ef87f8758151999a610e4c207e01c4bc52ed78512780e8161c6019",
+    "conftest.py": "aa5904608fb5bc39e966195f56e48d92ce42025da6c773ee15d6e7f0f006bef6"
+  },
+  "allowed_requirements": [
+    "fastapi",
+    "httpx",
+    "pytest",
+    "uvicorn"
+  ]
+}
