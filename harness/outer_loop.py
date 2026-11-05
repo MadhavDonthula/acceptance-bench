@@ -113,11 +113,13 @@ def _require_keys() -> None:
 def run_one(provider: str, order_index: int, run_id: str) -> dict:
     providers = load_providers()
     model = providers[provider].model
-    workspace = os.path.join(RUNS_DIR, run_id, "workspace")
-    cfg_path = os.path.join(RUNS_DIR, run_id, "opencode.json")
-    os.makedirs(os.path.dirname(workspace), exist_ok=True)
-    if os.path.exists(workspace):
-        shutil.rmtree(workspace)
+    run_dir = os.path.join(RUNS_DIR, run_id)
+    workspace = os.path.join(run_dir, "workspace")
+    cfg_path = os.path.join(run_dir, "opencode.json")
+    # clear the whole run dir (workspace + any stale captured bodies from a prior run)
+    if os.path.exists(run_dir):
+        shutil.rmtree(run_dir)
+    os.makedirs(run_dir, exist_ok=True)
     shutil.copytree(STARTER_DIR, workspace,
                     ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "payments.db", ".pytest_cache"))
     git_init_commit(workspace, "starter")
@@ -227,10 +229,15 @@ def main() -> int:
     plan = build_run_plan(seed, runs_per_arm, arms)
 
     os.makedirs(RAW_DIR, exist_ok=True)
-    # fresh pilot: clear prior pilot artifacts (calls.jsonl kept append-only within a pilot)
-    for p in (RUNS_JSONL, ROUNDS_JSONL):
+    # Fresh experiment: start clean. Archive the previous calls.jsonl (run_ids are
+    # reused across experiments, so appending would collide — e.g. pilot + main
+    # both have run00_baseten). This keeps the new experiment's data uncontaminated.
+    archive_dir = os.path.join(RAW_DIR, "archive")
+    os.makedirs(archive_dir, exist_ok=True)
+    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    for p in (CALLS_PATH, RUNS_JSONL, ROUNDS_JSONL):
         if os.path.exists(p):
-            os.remove(p)
+            os.rename(p, os.path.join(archive_dir, f"{os.path.basename(p)}.{ts}"))
 
     # TRACE REPLAY capture: opt-in full-body capture for the first 3 coral and
     # first 3 baseten-1017 runs (pre-registered). run_ids are derived from the plan.
