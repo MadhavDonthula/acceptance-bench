@@ -1,9 +1,4 @@
-"""Charge and refund business logic.
-
-NOTE (known bug): create_charge has no idempotency protection. If a client
-retries the same request (e.g. after a network timeout) a second charge row is
-created, so the customer is charged twice.
-"""
+"""Charge and refund business logic."""
 
 from __future__ import annotations
 

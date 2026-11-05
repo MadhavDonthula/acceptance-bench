@@ -43,7 +43,7 @@ def _load_feedback() -> dict:
 
 
 def _load_baseline() -> dict:
-    with open(os.path.join(HIDDEN_DIR, "baseline_hashes.json")) as f:
+    with open(os.path.join(HIDDEN_DIR, "baseline.json")) as f:
         return json.load(f)
 
 
@@ -115,23 +115,22 @@ def _run_hidden(copy_dir: str) -> tuple[dict, str]:
 
 
 def _check_hygiene(copy_dir: str) -> tuple[bool, dict]:
-    import hashlib
+    """Check 7: original 9 test functions unchanged (by AST) + no new deps.
+
+    New test files and new test functions are allowed; only removing or changing
+    one of the original 9 functions, or adding a new third-party dependency to
+    requirements.txt, fails this check.
+    """
+    from judge.hygiene import check_original_functions
 
     baseline = _load_baseline()
-    detail = {"modified_files": [], "new_requirements": []}
+    detail = {"changed_or_removed_functions": [], "new_requirements": []}
     ok = True
 
-    for rel, expected in baseline["protected_files"].items():
-        path = os.path.join(copy_dir, rel)
-        if not os.path.exists(path):
-            detail["modified_files"].append(rel + " (missing)")
-            ok = False
-            continue
-        with open(path, "rb") as f:
-            actual = hashlib.sha256(f.read()).hexdigest()
-        if actual != expected:
-            detail["modified_files"].append(rel)
-            ok = False
+    problems = check_original_functions(copy_dir, baseline["original_test_functions"])
+    if problems:
+        detail["changed_or_removed_functions"] = problems
+        ok = False
 
     allowed = set(baseline["allowed_requirements"])
     req_path = os.path.join(copy_dir, "requirements.txt")

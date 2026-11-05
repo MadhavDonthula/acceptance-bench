@@ -275,3 +275,31 @@ history proves the order of decisions.
   confirmed from model listings and is logged as a confound in SUMMARY.
 - **Surprises:** The Coral key that looked available was the unfilled example
   placeholder — so BOTH arms are blocked on credentials, not just Baseten.
+
+---
+
+## 2026-11-04 (hardening) — Tasks 3 & 4
+
+### Task 4: removed "known bug" comments
+- **Observed:** `starter/payments/charges.py` and `app.py` carried explicit
+  "known bug / not idempotent" comments that telegraphed the task to the agent.
+- **Decision:** Removed both docstring notes. The duplicate-charge behavior is
+  now something the agent must discover from the ticket + code, not a labeled
+  bug. Starter behavior is unchanged (visible suite still green).
+- **Effect:** Fairer task; no hint leakage. Confirmed starter still REJECTED at
+  check 2, reference still ACCEPTED.
+
+### Task 3: check 7 is now AST-based
+- **Observed:** The old check 7 hashed whole files (tests/test_payments.py +
+  conftest.py), so it forbade ANY edit — including legitimately adding new tests.
+- **Decision:** New policy (judge/hygiene.py): allow new test files and new test
+  functions; FAIL only if any of the original 9 test functions is removed or
+  changed, compared by normalized `ast.dump` (no attributes → whitespace/comment/
+  formatting edits pass, logic edits fail), OR if requirements.txt gains a new
+  third-party package. Baseline moved from `baseline_hashes.json` (sha256) to
+  `baseline.json` (per-function AST dumps + allowed_requirements). Feedback[7]
+  rewritten to match.
+- **Verified:** reference → no problems; reformat + new test fn + new test file
+  → allowed; changing `test_create_charge`'s asserted value → caught
+  (`test_create_charge (changed)`). verify_task still green.
+- **Surprises:** none.

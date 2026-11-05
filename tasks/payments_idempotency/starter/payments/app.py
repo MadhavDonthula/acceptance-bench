@@ -5,9 +5,6 @@ Endpoints:
   GET  /charges/{id}       fetch a charge
   POST /refunds            refund (full or partial) a charge
   GET  /healthz            liveness
-
-Known bug: POST /charges is not idempotent, so client retries create duplicate
-charges. See charges.create_charge.
 """
 
 from __future__ import annotations
