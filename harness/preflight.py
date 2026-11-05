@@ -157,17 +157,19 @@ def check_baseten_rate_limits(providers) -> tuple[bool, dict]:
         print(f"    FAIL: {e}")
         return False, {"error": str(e), "url": url}
     _save("baseten_rate_limits.json", {"slug": slug, "status": r.status_code, "body": data})
-    # Heuristic field discovery (schema not guaranteed).
+    # Baseten returns rate_limits: [{type: TOKEN|REQUEST, unit: MINUTE, threshold: N}, ...]
     rpm = tpm = None
     if isinstance(data, dict):
-        flat = json.dumps(data).lower()
-        for k, v in data.items():
-            lk = k.lower()
-            if "rpm" in lk or "request" in lk and "minute" in lk:
-                rpm = v
-            if "tpm" in lk or ("token" in lk and "minute" in lk):
-                tpm = v
-        _ = flat
+        for rl in (data.get("rate_limits") or []):
+            if not isinstance(rl, dict):
+                continue
+            t = str(rl.get("type", "")).upper()
+            unit = str(rl.get("unit", "")).upper()
+            thr = rl.get("threshold")
+            if t == "TOKEN" and unit == "MINUTE":
+                tpm = thr
+            elif t == "REQUEST" and unit == "MINUTE":
+                rpm = thr
     print(f"    slug={slug}  status={r.status_code}  RPM={rpm}  TPM={tpm}")
     detail = {"slug": slug, "status": r.status_code, "rpm": rpm, "tpm": tpm, "raw": data}
     low_tpm = isinstance(tpm, (int, float)) and tpm < TPM_THRESHOLD

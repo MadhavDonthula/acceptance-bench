@@ -368,3 +368,41 @@ history proves the order of decisions.
   Both arms authenticated; proceeding to full preflight steps 2–5.
 - **Surprises:** The 401 was a genuine inactive/old key, and a text-editor save
   introduced a stray `=` line — a good reason the loader must be crash-proof.
+
+---
+
+## 2026-11-04 (preflight complete) — findings + rate-limit parse fix
+
+### Preflight results (both arms authenticated)
+- **[1] models:** coral 200 (2 models), baseten 200 (21 models).
+- **[2] raw usage shapes:** BOTH expose `prompt_tokens_details.cached_tokens`
+  (parser already handles it). Coral also returns `cache_write_tokens`,
+  `billable_cache_write_tokens`, a native `cost`, and `reasoning_tokens`.
+  **Baseten returns speculative-decoding counts** in
+  `completion_tokens_details`: `accepted_prediction_tokens` /
+  `rejected_prediction_tokens` — the proxy's `_prediction_tokens` captures these,
+  so SUMMARY can report Baseten speculative acceptance.
+- **[3] cache probe (header-naive, direct httpx through proxy):** coral 2nd
+  request cached=4352 (**cache works**); baseten 2nd request cached=0 (**no cache
+  growth observed**). Caveat: this probe does NOT send OpenCode's session /
+  cache-affinity headers, and back-to-back calls may hit different Baseten
+  replicas. The REAL per-call hit rate under the agent (which does send those
+  headers) is what the pilot measures and `analyze.py` reports — this is exactly
+  the cache-story gap the benchmark was built to quantify.
+- **[4] Baseten rate limits (chosen slug):** TPM=**2,097,154** (~2.1M),
+  RPM=**120**. TPM ≫ 500k → no throttling-bias concern; no operator decision
+  needed. Fixed the parser to read Baseten's `rate_limits:[{type,unit,threshold}]`
+  schema (heuristic had returned None). The API also confirms public prices
+  (input 0.60 / output 2.40) and `release_date=2026-10-17` for the slug.
+- **[5] OpenCode smoke:** coral rc=0 + hello.txt created; baseten rc=0 +
+  hello.txt created. The REAL agent works end-to-end through the proxy on both
+  arms, and the mock-only `DecimalError` did NOT occur with real usage shapes.
+
+### Snapshot match (still a confound)
+- Baseten slug `...-1017-Fast` is confirmed the Oct-17 snapshot. Coral serves the
+  opaque `deepseek-v4.1-flash-fast`; still cannot prove weight-identity. Keeping
+  1017 as the closest faithful default (pre-registered).
+
+### Spend
+- Preflight total so far ~\$0.05 at public prices (2 preflight passes). Well under
+  the \$5 cap.
