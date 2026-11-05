@@ -467,3 +467,74 @@ history proves the order of decisions.
 - Coral's account is billed at exactly PUBLIC list prices — contrary to the
   pre-registered worry that it might be grandfathered cheaper. Public-price
   headline is therefore faithful to Coral's actual billing in this account.
+
+---
+
+## 2026-11-04 (Baseten caching deep-dive) — resolved: Baseten DOES cache
+
+### Observed
+- **OpenCode version:** installed 0.4.45 (from `^0.4.0`), latest published **1.19.5**
+  (a major-line jump). 0.4.45 sends **no** session/affinity header. The 1.19.5
+  binary contains `prompt_cache_key`, `sessionId`, `affinity`; an empirical smoke
+  showed 1.19.5 sends `x-session-affinity`, `x-session-id`, `x-opencode-session-id`
+  (all = the stable per-session id) on every call, and the proxy forwards them
+  unchanged. Baseten docs: "Claude Code, Codex, and OpenCode include recognized
+  session IDs" — true for 1.19.x, not for 0.4.45.
+- **Multi-slug affinity probe (3× ~20k, same uuid, DIRECT to Baseten):** all four
+  slugs cache and report `cached_tokens` in response usage, with TTFT dropping on
+  hits:
+  - 1017-Fast: cached [4352, 17664, 4352], ttft [0.41, 0.33, 0.68]
+  - Flash-Fast: cached [17664, 17664, 17664], ttft [0.87, 0.72, 0.53]
+  - Flash (std): cached [0, 17664, 17664], ttft [1.38, 0.52, 0.34]
+  - GLM-5.3:     cached [0, 17728, 17728], ttft [3.13, 1.47, 1.20]
+- **OpenAI Python SDK direct (step 3):** 1017-Fast cached [17664, 17664, 4352] —
+  same as httpx; rules out client/proxy quirks.
+- **Proxy is NOT the cause (controlled test):** identical 20k streaming reqs,
+  direct cached [4352,17664,17664] vs THROUGH-PROXY cached [17664,17664,17664].
+  The proxy caches fine. The earlier "Baseten cached=0" was **cold-cache /
+  first-sighting warmth + no affinity header (OpenCode 0.4.45)**, not the proxy
+  and not an inability to cache.
+- **Billing usage API (step 4) disagrees with response usage:** for warm calls
+  where response `cached_tokens`=17664, `GET /v1/model_apis/usage` (grouped by
+  model, today) still shows `cached_input_tokens: 0`, `uncached_input_tokens`=all.
+  So Baseten reports cache hits per-response (latency benefit) but is **not
+  crediting cached input in billing** for this slug/tier — in contrast to Coral,
+  whose native cost bills cached input at the discounted rate.
+- **Request IDs (step 5)** saved for a possible support ticket (all 1017-Fast):
+  `x-baseten-request-id` = 54ca701a1a9cc5bb…, 54ca701a1a9cc5d4…, 54ca701a1a9cc5f8…
+  (full values in results/preflight/baseten_cache_deepdive.json).
+- **OpenCode 1.19.5 does real tool work** (created hello.txt via Write, rc=0).
+
+### Options
+- (headers) stay on 0.4.45 (no affinity → unfair to Baseten) vs upgrade to 1.19.5
+  (sends affinity → fair).
+- (cost) keep pre-registered public-price formula using response cached_tokens vs
+  switch Baseten to "no cache discount" per the billing API.
+
+### Decision
+- **Upgrade OpenCode to pinned 1.19.5** so Baseten gets the same cache-affinity
+  treatment Coral gets — essential for a fair comparison. Also gains
+  `--format json` (machine-readable events). Must re-verify the full pilot round
+  (same-session `--continue` + file edits THROUGH the proxy) under 1.19.5 before
+  running the pilot (a through-proxy 1.19.5 smoke once showed no file write; a
+  direct smoke wrote the file, so re-confirm the proxy path).
+- **Cost:** keep headline at public list prices using response `cached_tokens`
+  (pre-registered), but FLAG the response-vs-billing cache discrepancy prominently
+  in SUMMARY: Baseten's billing API shows cached_input=0, so a cache cost discount
+  for Baseten is NOT confirmed and real Baseten cost may be higher than our
+  public-price computation implies. (Coral's billing matches its public-price
+  cached discount, verified earlier.)
+
+### Effect on next step
+- Re-verify the pilot round under 1.19.5 (through proxy). Keep
+  BASETEN_MODEL=1017-Fast. The pilot's measured Baseten cache hit rate will now be
+  realistic (affinity header sent), though warmth-dependent and more variable than
+  Coral's eager content cache.
+
+### Surprises
+- The "Baseten never caches" conclusion from the first probe was wrong — it was
+  cold-cache + missing affinity header (OpenCode 0.4.45). With 1.19.5's affinity
+  header and warm replicas, Baseten caches across ALL tested slugs.
+- Response `cached_tokens` and the billing usage API DISAGREE on Baseten (hits
+  reported per-response, but cached_input=0 in billing) — the cache's cost benefit
+  is unconfirmed even though its latency benefit is real.
