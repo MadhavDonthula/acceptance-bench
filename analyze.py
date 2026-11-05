@@ -445,7 +445,19 @@ def main():
 
     diag = _load_json(os.path.join(PREFLIGHT, "pilot_diagnostics.json"))
 
-    pilot_calls = [c for c in calls if str(c.get("run_id", "")).startswith("run")]
+    # Window filter: a call counts for a run only if it started within that run's
+    # [wall_start, wall_end] (guards against stale calls reusing a run_id).
+    win = {r["run_id"]: (r.get("wall_start"), r.get("wall_end")) for r in runs}
+    def _in_window(c):
+        rid = c.get("run_id", "")
+        if not rid.startswith("run"):
+            return False
+        w = win.get(rid)
+        if not w or not c.get("wall_request_start"):
+            return True
+        lo, hi = w
+        return (not lo or c["wall_request_start"] >= lo) and (not hi or c["wall_request_start"] <= hi)
+    pilot_calls = [c for c in calls if _in_window(c)]
     by_run = build_run_metrics(runs, rounds, pilot_calls)
     chart = make_chart(by_run)
 

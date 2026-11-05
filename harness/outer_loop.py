@@ -42,7 +42,7 @@ def _append(path: str, rec: dict) -> None:
         f.write(json.dumps(rec, default=str) + "\n")
 
 
-def _calls_for(run_id: str, rnd: int | None = None) -> list[dict]:
+def _calls_for(run_id: str, rnd: int | None = None, since_wall: str | None = None) -> list[dict]:
     if not os.path.exists(CALLS_PATH):
         return []
     out = []
@@ -54,6 +54,10 @@ def _calls_for(run_id: str, rnd: int | None = None) -> list[dict]:
         if r.get("run_id") != run_id:
             continue
         if rnd is not None and str(r.get("round")) != str(rnd):
+            continue
+        # defensive: ignore calls that started before this run began (stale calls
+        # from a prior/aborted experiment that reused the same run_id)
+        if since_wall and r.get("wall_request_start") and r["wall_request_start"] < since_wall:
             continue
         out.append(r)
     return out
@@ -150,7 +154,7 @@ def run_one(provider: str, order_index: int, run_id: str) -> dict:
 
         git_commit_all(workspace, f"round {rnd} ({provider})")
 
-        round_calls = _calls_for(run_id, rnd)
+        round_calls = _calls_for(run_id, rnd, since_wall=run_wall_start)
         provider_err = _provider_error_round(round_calls)
 
         judge_start = _now()
@@ -205,7 +209,7 @@ def run_one(provider: str, order_index: int, run_id: str) -> dict:
     if outcome is None:
         outcome = "round_cap"
 
-    run_calls = _calls_for(run_id)
+    run_calls = _calls_for(run_id, since_wall=run_wall_start)
     rec = {
         "run_id": run_id, "provider": provider, "model": model,
         "order_index": order_index,
