@@ -776,3 +776,54 @@ history proves the order of decisions.
 ### Order of operations
 - PREREGISTRATION.md is committed BEFORE any main-experiment run so git timestamps
   prove the design preceded the data.
+
+---
+
+## 2026-11-04/05 (MAIN EXPERIMENT executed + trace replay)
+
+### Result: 30 runs (10/arm, 3 arms), all ACCEPTED
+- **Headline (pre-registered bootstrap 95% CIs, 10 time-slot triples):**
+  - **A−B (coral vs baseten-1017):** Δtime/accepted **[+8.4, +13.5]s** (excludes 0
+    → coral robustly SLOWER to accept); Δcost/accepted **[−$0.145, −$0.089]**
+    (excludes 0 → coral robustly CHEAPER).
+  - **B−C (snapshot: baseten-1017 vs baseten-sept):** Δtime **[−2.7, +4.0]s** and
+    Δcost **[−$0.020, +$0.041]** both **INCLUDE 0** → no robust snapshot difference.
+    So the A−B gaps are a serving-stack/model story, NOT a snapshot artifact. This
+    is exactly why arm C was worth running.
+  - time/accepted: coral 41.3s, baseten 30.5s, sept 29.6s. cost/accepted: coral
+    $0.044, baseten $0.159, sept $0.148. cache hit: coral 95.9%, baseten 72.3%,
+    sept 70.6% (up from the pilot's ~51% — warmer/steadier under 30 runs).
+- **Controlled-probe decode:** baseten 646 vs coral 389 tok/s (**1.66×**).
+- **Cost decomposition (30 runs):** gap 65% token/cache behavior, 35% price.
+- **Spend:** main $3.6 + trace replay ~$2.5 ≈ $6 (guard $18).
+
+### Trace replay (inference isolated from agent behavior)
+- 6 captured sessions × 3 arms, identical request sequences, original gaps, fresh
+  affinity. Median per session: model_time coral 40.4s vs baseten 26.5s vs sept
+  24.1s; TTFT coral 0.96s vs baseten 0.48s vs sept 0.44s; cache coral 99% vs
+  baseten 71% vs sept 78%; cost coral $0.031 vs baseten $0.206 vs sept $0.160.
+- **Conclusion:** the speed/cost tradeoff holds with agent behavior held FIXED —
+  Baseten is genuinely faster per identical workload (decode + TTFT), Coral
+  genuinely cheaper (cache + price). The main experiment's end-to-end gap is NOT
+  merely Coral's extra reasoning; it's inference-level.
+
+### Operational issues hit + fixes (logged for honesty)
+- **run_id collision:** pilot + main reuse run_ids; calls.jsonl was append-only →
+  contamination. Fix: archive calls/runs/rounds jsonl at experiment start; clear
+  runs/<id>/.
+- **Stale-call bursts:** a dying OpenCode from an aborted run wrote a few calls
+  into the next experiment's fresh calls.jsonl under a reused run_id. Fix:
+  per-run [wall_start, wall_end] window filter in _calls_for and analyze; plus a
+  one-time physical clean of 14 stale calls from calls.jsonl (archived the dirty
+  copy). All totals/bootstrap use windowed calls only.
+- **Trace-replay 429s:** baseten + baseten_sept share one Baseten account TPM;
+  replaying both back-to-back right after the main run throttled (all baseten
+  replays failed first pass). Fix: 429/5xx retry with backoff + 5s inter-replay
+  pacing; re-ran → 18/18 succeeded, 0 failures.
+- OpenCode 1.19.5 `$PWD` project-root fix (earlier) held across all 30 runs (no
+  escaped files).
+
+### SUMMARY
+- analyze.py now auto-labels n≥10 as the PRE-REGISTERED MAIN EXPERIMENT (title,
+  banner, limitations), reports 3-arm table + bootstrap CIs + trace-replay +
+  refreshed diagnostics. Pilot artifacts archived under results/raw/archive/.

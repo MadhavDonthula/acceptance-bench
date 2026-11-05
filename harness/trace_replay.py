@@ -58,6 +58,22 @@ def _original_gaps(run_id: str, n: int):
     return gaps[:n]
 
 
+def _post_with_retry(url, b, headers, attempts=5):
+    """Retry on 429/5xx with backoff (Baseten TPM limits; baseten + baseten_sept
+    share one account quota, so replays can transiently throttle)."""
+    for i in range(attempts):
+        r = httpx.stream("POST", url, json=b, headers=headers, timeout=180)
+        resp = r.__enter__()
+        if resp.status_code not in (429, 500, 502, 503, 529):
+            return r, resp
+        retry_after = resp.headers.get("retry-after")
+        r.__exit__(None, None, None)
+        wait = float(retry_after) if (retry_after and retry_after.replace(".", "").isdigit()) else min(2 ** i, 30)
+        time.sleep(wait)
+    r = httpx.stream("POST", url, json=b, headers=headers, timeout=180)
+    return r, r.__enter__()
+
+
 def _replay_call(origin, key, model, body, affinity):
     b = dict(body)
     b["model"] = model
@@ -67,7 +83,8 @@ def _replay_call(origin, key, model, body, affinity):
     t0 = time.perf_counter()
     first = last = None
     usage = None
-    with httpx.stream("POST", f"{origin}/v1/chat/completions", json=b, headers=headers, timeout=180) as r:
+    cm, r = _post_with_retry(f"{origin}/v1/chat/completions", b, headers)  # cm already entered
+    try:
         status = r.status_code
         if status != 200:
             return {"status": status, "error": r.read().decode("utf-8", "ignore")[:150]}
@@ -89,6 +106,8 @@ def _replay_call(origin, key, model, body, affinity):
                 last = now
             if isinstance(o.get("usage"), dict):
                 usage = o["usage"]
+    finally:
+        cm.__exit__(None, None, None)
     latency = time.perf_counter() - t0
     det = (usage or {}).get("prompt_tokens_details") or {}
     cached = det.get("cached_tokens") or 0
@@ -154,6 +173,7 @@ def main() -> int:
           f"= {len(capture_ids)*len(REPLAY_ARMS)} replays\n")
     for rid in capture_ids:
         for arm in REPLAY_ARMS:
+            time.sleep(5)  # pace replays; baseten + baseten_sept share one account TPM
             res = replay_session(rid, arm, providers)
             with open(out_path, "a") as f:
                 f.write(json.dumps({k: v for k, v in res.items() if k != "per_call"}) + "\n")

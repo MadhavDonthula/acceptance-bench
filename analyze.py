@@ -461,12 +461,25 @@ def main():
     by_run = build_run_metrics(runs, rounds, pilot_calls)
     chart = make_chart(by_run)
 
+    arm_order = ["coral", "baseten", "baseten_sept"]
+    arms_present = [a for a in arm_order if any(m["provider"] == a for m in by_run.values())]
+    arms_present += sorted({m["provider"] for m in by_run.values()} - set(arms_present))
+    per_arm = min((sum(1 for m in by_run.values() if m["provider"] == a) for a in arms_present),
+                  default=0)
+    is_main = per_arm >= 10
+
     L = []
-    L.append("# Pilot results — CoralBricks vs Baseten (ACCEPTED-work benchmark)\n")
-    L.append("> ## ⚠️ PILOT, n=3 per arm. NO STATISTICAL CLAIMS.\n"
-             "> These are real, recorded numbers from a handful of runs. They are **not** powered "
-             "to prove a difference between providers. Read them as a smoke test of the method, "
-             "not as a verdict.\n")
+    if is_main:
+        L.append("# Main experiment — CoralBricks vs Baseten (ACCEPTED-work benchmark)\n")
+        L.append(f"> ## PRE-REGISTERED MAIN EXPERIMENT — n={per_arm} per arm, {len(arms_present)} arms.\n"
+                 "> Pre-registered in PREREGISTRATION.md (committed before any main run). Paired "
+                 "bootstrap 95% CIs below. Still a single task on a single machine — CIs quantify "
+                 "run-to-run variance, NOT external validity. Read the limitations section.\n")
+    else:
+        L.append("# Pilot results — CoralBricks vs Baseten (ACCEPTED-work benchmark)\n")
+        L.append(f"> ## ⚠️ PILOT, n={per_arm} per arm. NO STATISTICAL CLAIMS.\n"
+                 "> Real, recorded numbers from a handful of runs; not powered to prove a difference. "
+                 "A smoke test of the method, not a verdict.\n")
 
     if not runs:
         L.append("\n## No pilot data recorded yet\n")
@@ -602,10 +615,10 @@ def main():
                          f"2nd={d.get('cached_second')} (cache grew: {d.get('cache_grew')})\n")
         L.append("\n> **Superseded:** the preflight cache probe above was header-naive and run on the "
                  "old OpenCode 0.4.45 (no session/affinity header). It is NOT the cache story. The "
-                 "later investigation (DECISION_LOG) and the measured per-run cache hit rates above "
-                 "(Coral ~95%, Baseten ~51%) are authoritative: with OpenCode 1.19.5's "
-                 "`x-session-affinity` header, **Baseten does cache** — the earlier 0% was cold cache "
-                 "+ a missing session header, not an inability to cache.\n")
+                 "measured per-run cache hit rates in the per-provider table above are authoritative: "
+                 "with OpenCode 1.19.5's `x-session-affinity` header, **Baseten does cache** (it just "
+                 "caches less than Coral) — the earlier 0% was cold cache + a missing session header, "
+                 "not an inability to cache.\n")
     else:
         L.append("_Preflight not run._\n")
 
@@ -615,13 +628,24 @@ def main():
     if runs:
         bt = [r for r in runs if r["provider"] == "baseten"]
         bt_model = bt[0]["model"] if bt else None
+    n_note = (f"- **n={per_arm} per arm, {len(arms_present)} arms.** Bootstrap 95% CIs are reported "
+              "above; they quantify run-to-run variance only. Still one task on one machine.\n"
+              if is_main else
+              "- **n=3 per arm.** Pilot scale. No confidence intervals — do not treat any difference "
+              "as real.\n")
+    snap = (
+        "- **Snapshot confound — now measured (arm B vs C).** Coral serves `deepseek-v4.1-flash-fast` "
+        "(opaque snapshot); we ran BOTH Baseten snapshots — B=`...-1017-Fast` (Oct-17) and "
+        "C=`...-Flash-Fast` (Sept). The B−C paired bootstrap CI for time/cost per accepted INCLUDES 0, "
+        "i.e. no robust snapshot difference at this n — so the A−B (coral vs baseten) differences are "
+        "unlikely to be mere snapshot artifacts. Coral's weights-identity to either snapshot is still "
+        "unconfirmed.\n"
+        if is_main else
+        f"- **Snapshot match UNRESOLVED.** Coral serves `deepseek-v4.1-flash-fast` (opaque); Baseten "
+        f"on `{bt_model or '(see .env)'}`. Weights-identity unconfirmed — a decode/quality gap could "
+        "be a snapshot gap, not a serving-stack gap.\n")
     L.append(
-        "- **n=3 per arm.** Pilot scale. No confidence intervals, no significance — do not treat any "
-        "difference as real.\n"
-        f"- **Snapshot match UNRESOLVED.** Coral serves `deepseek-v4.1-flash-fast` (opaque snapshot); "
-        f"Baseten was run on `{bt_model or '(see .env BASETEN_MODEL)'}`. We could not confirm the two "
-        "are the identical weights snapshot. This is a real confound: a decode-speed or quality gap "
-        "could be a snapshot gap, not a serving-stack gap.\n"
+        n_note + snap +
         "- **Precision differs / undisclosed.** Coral documents FP4 serving; Baseten's precision is "
         "undisclosed. Token-for-token quality may differ for reasons unrelated to speed.\n"
         "- **One task, one location.** Single task (payments idempotency), single machine/region. "
