@@ -303,3 +303,30 @@ history proves the order of decisions.
   → allowed; changing `test_create_charge`'s asserted value → caught
   (`test_create_charge (changed)`). verify_task still green.
 - **Surprises:** none.
+
+---
+
+## 2026-11-04 (hardening) — Task 1: mutation-testing the judge
+
+- **Observed:** The judge was only validated against starter (fail) and reference
+  (pass). A judge that silently accepted a subtly-broken solution would go
+  undetected.
+- **Decision:** Added `judge/mutants/` with one deliberately-flawed solution per
+  behavioral check, generated from the reference by a single targeted edit each
+  (`judge/mutants/build_mutants.py`, materialized dirs + a MUTANT.md note each):
+  - mutant2: idempotency key ignored (always new charge).
+  - mutant3: reused key + different body returns stored charge instead of 409.
+  - mutant4: non-atomic SELECT-then-INSERT — per-key lock removed AND unique
+    constraint on `idempotency_keys.key` removed.
+  - mutant5: keyless requests share one key and wrongly collapse.
+  - mutant6: list endpoint ordered oldest-first instead of newest-first.
+  - mutant7: correct solution but rewrites an original visible test function
+    (still passing, so only check 7 catches it).
+  `verify_task` now REBUILDS the mutants from the reference (so they can't drift)
+  and asserts each one's first-failing check equals its intended check.
+- **Result:** All 6 mutants fail EXACTLY their intended check
+  (first_failed == intended); starter REJECTED@2; reference ACCEPTED. Total
+  verify runtime 5.4s.
+- **Surprises:** mutant5 also trips check 6 (its shared keyless key causes a 409
+  on the differing-body charges the list test creates) — harmless, since check 5
+  has higher priority so the judge still reports exactly check 5.
