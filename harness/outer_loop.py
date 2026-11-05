@@ -223,7 +223,8 @@ def main() -> int:
 
     seed = int(os.environ.get("PILOT_SEED", "20261103"))
     runs_per_arm = int(os.environ.get("RUNS_PER_ARM", "3"))
-    plan = build_run_plan(seed, runs_per_arm)
+    arms = tuple(a.strip() for a in os.environ.get("ARMS", "coral,baseten").split(",") if a.strip())
+    plan = build_run_plan(seed, runs_per_arm, arms)
 
     os.makedirs(RAW_DIR, exist_ok=True)
     # fresh pilot: clear prior pilot artifacts (calls.jsonl kept append-only within a pilot)
@@ -231,10 +232,21 @@ def main() -> int:
         if os.path.exists(p):
             os.remove(p)
 
+    # TRACE REPLAY capture: opt-in full-body capture for the first 3 coral and
+    # first 3 baseten-1017 runs (pre-registered). run_ids are derived from the plan.
+    run_ids = [f"run{i:02d}_{p}" for i, p in enumerate(plan)]
+    capture_ids = []
+    for want in ("coral", "baseten"):
+        capture_ids += [rid for rid in run_ids if rid.endswith("_" + want)][:3]
+    os.environ["PROXY_CAPTURE_RUN_IDS"] = ",".join(capture_ids)
+
     plan_meta = {
         "seed": seed,
         "runs_per_arm": runs_per_arm,
+        "arms": list(arms),
         "order": plan,
+        "run_ids": run_ids,
+        "capture_run_ids": capture_ids,
         "started": _now(),
         "caps": {"max_rounds": MAX_ROUNDS, "max_round_s": MAX_ROUND_SECONDS,
                  "max_run_s": MAX_RUN_SECONDS, "spend_cap_usd": SPEND_CAP_USD},
@@ -243,7 +255,8 @@ def main() -> int:
     with open(os.path.join(RAW_DIR, "pilot_plan.json"), "w") as f:
         json.dump(plan_meta, f, indent=2)
 
-    print(f"Pilot plan (seed={seed}): {plan}")
+    print(f"Pilot plan (seed={seed}, arms={arms}): {plan}")
+    print(f"Trace-capture run_ids: {capture_ids}")
 
     with ProxyManager():
         for i, provider in enumerate(plan):

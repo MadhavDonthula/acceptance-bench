@@ -43,10 +43,14 @@ load_dotenv()
 
 RAW_DIR = os.path.join(ROOT, "results", "raw")
 CALLS_PATH = os.path.join(RAW_DIR, "calls.jsonl")
+RUNS_DIR = os.path.join(ROOT, "runs")
 
 PROVIDERS = load_providers()
 SETTINGS = load_settings()
 INJECT_PARAMS = os.environ.get("PROXY_INJECT_PARAMS", "1") not in ("0", "", "false", "False")
+# TRACE REPLAY: run_ids whose FULL request bodies (incl messages) are captured to
+# runs/<run_id>/bodies/ (gitignored, never committed). Opt-in via env.
+CAPTURE_RUN_IDS = {x for x in os.environ.get("PROXY_CAPTURE_RUN_IDS", "").split(",") if x}
 
 _client = httpx.AsyncClient(timeout=httpx.Timeout(None, connect=30.0))
 _write_lock = asyncio.Lock()
@@ -164,6 +168,17 @@ async def proxy_endpoint(request: Request):
     call_index = await _next_call_index(path_provider, run_id, rnd)
     raw_body = await request.body()
     new_body, recorded_params, msg_count = _modify_body(raw_body)
+
+    body_capture_path = None
+    if run_id in CAPTURE_RUN_IDS and f"/v1/{rest}".endswith("chat/completions"):
+        bdir = os.path.join(RUNS_DIR, run_id, "bodies")
+        os.makedirs(bdir, exist_ok=True)
+        body_capture_path = os.path.join(bdir, f"{rnd}_{call_index:04d}.json")
+        try:
+            with open(body_capture_path, "wb") as bf:
+                bf.write(new_body)
+        except Exception:
+            body_capture_path = None
 
     # Forward headers unchanged except the ones the proxy owns.
     fwd_headers = {

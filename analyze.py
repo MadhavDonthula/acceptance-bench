@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import random
 import statistics as stats
 
 import matplotlib
@@ -174,7 +175,8 @@ def provider_summary(by_run, calls, provider, prices=None):
 
 
 def make_chart(by_run):
-    provs = [p for p in ("coral", "baseten") if any(m["provider"] == p for m in by_run.values())]
+    provs = [p for p in ("coral", "baseten", "baseten_sept")
+             if any(m["provider"] == p for m in by_run.values())]
     if not provs:
         return None
     labels = ["model", "non-model agent", "judge"]
@@ -202,6 +204,122 @@ def make_chart(by_run):
     fig.savefig(path, dpi=120)
     plt.close(fig)
     return path
+
+
+def bootstrap_section(by_run, arms, n_boot=10000, seed=7) -> str:
+    """Paired bootstrap 95% CIs: resample time-slot GROUPS (one run per arm per
+    group) with replacement; recompute each arm's time/cost per accepted and the
+    paired A−B / B−C differences; report 2.5/97.5 percentiles."""
+    n_arms = len(arms)
+    groups = {}
+    for m in by_run.values():
+        gi = m["run"].get("order_index", 0) // max(n_arms, 1)
+        groups.setdefault(gi, {})[m["provider"]] = m
+    gidx = sorted(groups)
+    if len(gidx) < 2:
+        return "_Not enough time-slot groups for a bootstrap CI._\n"
+    rng = random.Random(seed)
+
+    def per_accepted(runs, field):
+        acc = [r for r in runs if r["outcome"] == "accepted"]
+        if not acc:
+            return None
+        return sum(r[field] for r in runs) / len(acc)
+
+    samp = {a: {"time": [], "cost": []} for a in arms}
+    diffs = {}
+    pairs = []
+    if "coral" in arms and "baseten" in arms:
+        pairs.append(("A−B", "coral", "baseten"))
+    if "baseten" in arms and "baseten_sept" in arms:
+        pairs.append(("B−C", "baseten", "baseten_sept"))
+    for label, _, _ in pairs:
+        diffs[label] = {"time": [], "cost": []}
+
+    for _ in range(n_boot):
+        picks = [groups[rng.choice(gidx)] for _ in gidx]
+        pa = {}
+        for a in arms:
+            runs = [g[a] for g in picks if a in g]
+            t = per_accepted(runs, "wall")
+            c = per_accepted(runs, "cost")
+            pa[a] = (t, c)
+            if t is not None:
+                samp[a]["time"].append(t)
+            if c is not None:
+                samp[a]["cost"].append(c)
+        for label, x, y in pairs:
+            tx, cx = pa.get(x, (None, None))
+            ty, cy = pa.get(y, (None, None))
+            if tx is not None and ty is not None:
+                diffs[label]["time"].append(tx - ty)
+            if cx is not None and cy is not None:
+                diffs[label]["cost"].append(cx - cy)
+
+    def ci(xs):
+        if len(xs) < 2:
+            return None
+        return (_pct(xs, 2.5), _pct(xs, 97.5))
+
+    def fmt_ci(c, nd=2, dollar=False):
+        if not c:
+            return "—"
+        p = "$" if dollar else ""
+        return f"[{p}{c[0]:.{nd}f}, {p}{c[1]:.{nd}f}]"
+
+    L = [f"_{n_boot} resamples of {len(gidx)} time-slot groups; 95% percentile CIs._\n\n"]
+    L.append("| quantity | " + " | ".join(arms) + " |\n|---|" + "---|" * len(arms) + "\n")
+    L.append("| time/accepted 95% CI (s) | "
+             + " | ".join(fmt_ci(ci(samp[a]["time"]), 1) for a in arms) + " |\n")
+    L.append("| cost/accepted 95% CI ($) | "
+             + " | ".join(fmt_ci(ci(samp[a]["cost"]), 4, True) for a in arms) + " |\n")
+    if pairs:
+        L.append("\n**Paired differences (CI excluding 0 ⇒ robust direction at this n):**\n")
+        for label, x, y in pairs:
+            tci = ci(diffs[label]["time"])
+            cci = ci(diffs[label]["cost"])
+            tro = "excludes 0" if tci and (tci[0] > 0) == (tci[1] > 0) else "includes 0"
+            cro = "excludes 0" if cci and (cci[0] > 0) == (cci[1] > 0) else "includes 0"
+            L.append(f"- {label} ({x}−{y}): Δtime/accepted {fmt_ci(tci,1)} s ({tro}); "
+                     f"Δcost/accepted {fmt_ci(cci,4,True)} ({cro}).\n")
+    return "".join(L)
+
+
+def trace_replay_section() -> str:
+    path = os.path.join(RAW, "trace_replay.jsonl")
+    rows = _load_jsonl("trace_replay.jsonl") if os.path.exists(path) else []
+    if not rows:
+        return ("_No trace-replay data (run `python -m harness.trace_replay` after the main "
+                "experiment with captured sessions)._\n")
+    arms = [a for a in ("coral", "baseten", "baseten_sept") if any(r["arm"] == a for r in rows)]
+    sessions = sorted({r["source_run_id"] for r in rows})
+    L = [f"Same request sequences ({len(sessions)} captured sessions) replayed against each arm "
+         "with original inter-call gaps and a fresh affinity id per replay — isolates inference "
+         "speed + caching from agent behavior.\n\n"]
+    L.append("| metric (median over sessions) | " + " | ".join(arms) + " |\n|---|" + "---|" * len(arms) + "\n")
+
+    def med(arm, key):
+        xs = sorted(r[key] for r in rows if r["arm"] == arm and r.get(key) is not None)
+        return xs[len(xs) // 2] if xs else None
+
+    def mrow(label, key, nd=3, pct=False, dollar=False):
+        def f(v):
+            if v is None:
+                return "—"
+            if pct:
+                return f"{v*100:.1f}%"
+            return f"{'$' if dollar else ''}{v:.{nd}f}"
+        L.append(f"| {label} | " + " | ".join(f(med(a, key)) for a in arms) + " |\n")
+
+    mrow("model time / session (s)", "model_time_s", 2)
+    mrow("cache hit rate", "cache_hit_rate", pct=True)
+    mrow("cost / session ($)", "cost_usd_public", 4, dollar=True)
+    mrow("TTFT content p50 (s)", "ttft_content_p50", 3)
+    mrow("content decode total (s)", "content_decode_total_s", 2)
+    L.append("\n*Identical input per arm, so differences here are provider inference + caching only, "
+             "with agent behavior held fixed. Compare to the main experiment, where each arm's agent "
+             "did DIFFERENT work (Coral ~38% more reasoning).*\n")
+    return "".join(L)
 
 
 def diagnostics_section(diag) -> str:
@@ -370,24 +488,26 @@ def main():
     else:
         L.append("_No runs recorded._\n")
 
-    # Per-provider summary
-    L.append("\n## Per-provider pilot summary\n")
+    # Per-provider summary (arm-generic: one column per arm present)
+    ARM_ORDER = ["coral", "baseten", "baseten_sept"]
+    arms = [a for a in ARM_ORDER if any(m["provider"] == a for m in by_run.values())]
+    arms += sorted({m["provider"] for m in by_run.values()} - set(arms))
+    summ = {a: provider_summary(by_run, pilot_calls, a, prices) for a in arms}
+    n_arm = (by_run and next(iter(summ.values()))["n"]) or 0
+
+    L.append("\n## Per-provider summary\n")
     if by_run:
-        coral = provider_summary(by_run, pilot_calls, "coral", prices)
-        baseten = provider_summary(by_run, pilot_calls, "baseten", prices)
-        L.append("| metric | coral | baseten |\n|---|---|---|\n")
+        hdr = "| metric | " + " | ".join(arms) + " |\n"
+        L.append(hdr + "|---|" + "---|" * len(arms) + "\n")
+
         def row(label, key, nd=2, pct=False, mul=1):
-            cv, bv = coral.get(key), baseten.get(key)
             def f(v):
-                if v is None:
-                    return "—"
-                return f"{v*mul:.{nd}f}{'%' if pct else ''}"
-            L.append(f"| {label} | {f(cv)} | {f(bv)} |\n")
-        L.append(f"| runs | {coral['n']} | {baseten['n']} |\n")
-        L.append(f"| accepted | {coral['accepted']} | {baseten['accepted']} |\n")
+                return "—" if v is None else f"{v*mul:.{nd}f}{'%' if pct else ''}"
+            L.append(f"| {label} | " + " | ".join(f(summ[a].get(key)) for a in arms) + " |\n")
+
+        L.append("| runs | " + " | ".join(str(summ[a]["n"]) for a in arms) + " |\n")
+        L.append("| accepted | " + " | ".join(str(summ[a]["accepted"]) for a in arms) + " |\n")
         row("wall median (s)", "wall_median")
-        L.append(f"| wall range (s) | {_fmt(coral['wall_min'])}–{_fmt(coral['wall_max'])} | "
-                 f"{_fmt(baseten['wall_min'])}–{_fmt(baseten['wall_max'])} |\n")
         row("time per ACCEPTED result (s)", "time_per_accepted")
         row("cost per ACCEPTED result ($)", "cost_per_accepted", nd=4)
         row("median rounds", "rounds_median", nd=1)
@@ -395,55 +515,48 @@ def main():
         row("TTFT p95 (s)", "ttft_p95", nd=3)
         row("decode tok/s p50 [UNRELIABLE — see Diagnostics]", "decode_p50", nd=1)
         row("cache hit rate", "cache_hit_rate", nd=1, pct=True, mul=100)
-        row("total cost ($) — primary (public prices, w/ cache discount)", "total_cost", nd=4)
-        row("total cost ($) — NO cache discount (worst-case upper bound)",
-            "total_cost_no_cache_discount", nd=4)
-        row("cost per ACCEPTED ($) — NO cache discount (worst-case)",
-            "cost_per_accepted_no_discount", nd=4)
+        row("total cost ($) — primary (w/ cache discount)", "total_cost", nd=4)
+        row("total cost ($) — NO cache discount (worst-case)", "total_cost_no_cache_discount", nd=4)
         row("speculative acceptance", "spec_accept", nd=3)
-        L.append("\n*time/cost per ACCEPTED = (sum of ALL that arm's runs' wall/cost) ÷ "
-                 "(# accepted). '—' where nothing was accepted (division undefined — not zero).*\n")
-        L.append("\n*Primary cost applies the public cached-read price to response `cached_tokens` "
-                 "(pre-registered). BILLING VERIFIED (2026-11-04): Baseten's billing API daily "
-                 "subtotal matched the with-discount computation (and was far below the no-discount "
-                 "figure), and its usage API reports `cached_input_tokens>0` once aggregation settles "
-                 "— so Baseten DOES bill cached input at the discounted rate, like Coral. The "
-                 "NO-cache-discount row is retained only as a worst-case upper bound; it is NOT what "
-                 "either provider bills.*\n")
+        L.append("\n*time/cost per ACCEPTED = (Σ that arm's runs' wall/cost) ÷ (#accepted); '—' if "
+                 "0 accepted. Primary cost = public prices w/ cache discount on response "
+                 "`cached_tokens` (billing-verified in the pilot).*\n")
 
-        L.append("\n## Amdahl check\n")
-        L.append("*(Uses the controlled-probe decode speeds from Diagnostics §2, not the unreliable "
-                 "per-call pilot decode.)*\n")
-        L.append(amdahl_section(coral, baseten, by_run, diag))
+        # Pre-registered paired bootstrap 95% CIs (resample time-slot groups)
+        L.append("\n## Bootstrap 95% CIs (pre-registered; paired by time slot)\n")
+        L.append(bootstrap_section(by_run, arms))
 
-        # Plain recorded observations (NOT claims — n=3)
-        def cmp(a, b, lower_better=True):
-            if a is None or b is None:
+        # Amdahl (coral vs baseten-1017, if both present)
+        if "coral" in summ and "baseten" in summ:
+            L.append("\n## Amdahl check (coral vs baseten-1017)\n")
+            L.append("*(Uses controlled-probe decode speeds, not the unreliable per-call decode.)*\n")
+            L.append(amdahl_section(summ["coral"], summ["baseten"], by_run, diag))
+
+        # Recorded observations (descriptive)
+        L.append(f"\n## Recorded observations (n={n_arm} per arm — descriptive; see CIs above)\n")
+        def best(key, lower_better=True, fmt="{:.3g}"):
+            vals = {a: summ[a].get(key) for a in arms if summ[a].get(key) is not None}
+            if not vals:
                 return "—"
-            win = "coral" if ((a < b) == lower_better) else "baseten"
-            return f"{win} (coral {a:.3g} vs baseten {b:.3g})"
-        L.append("\n## Recorded observations (n=3 per arm — descriptive only, NOT significant)\n")
-        L.append(f"- acceptance: coral {coral['accepted']}/3, baseten {baseten['accepted']}/3\n")
-        L.append(f"- faster to ACCEPTED (lower time/accepted): "
-                 f"{cmp(coral['time_per_accepted'], baseten['time_per_accepted'])}\n")
-        L.append(f"- cheaper per ACCEPTED (primary cost): "
-                 f"{cmp(coral['cost_per_accepted'], baseten['cost_per_accepted'])}\n")
+            win = (min if lower_better else max)(vals, key=vals.get)
+            return f"**{win}** (" + ", ".join(f"{a} {fmt.format(vals[a])}" for a in arms if a in vals) + ")"
+        L.append("- acceptance: " + ", ".join(f"{a} {summ[a]['accepted']}/{summ[a]['n']}" for a in arms) + "\n")
+        L.append(f"- faster to ACCEPTED (time/accepted): {best('time_per_accepted', True)}\n")
+        L.append(f"- cheaper per ACCEPTED (primary cost): {best('cost_per_accepted', True, '${:.4f}')}\n")
+        L.append(f"- higher cache hit rate: {best('cache_hit_rate', False, '{:.1%}')}\n")
         pb = (diag or {}).get("step2_longgen_probe", {})
-        cdec = (pb.get("coral") or {}).get("visible_decode_tok_s_p50")
-        bdec = (pb.get("baseten") or {}).get("visible_decode_tok_s_p50")
-        if cdec and bdec:
-            L.append(f"- faster decode (controlled probe tok/s, higher better): "
-                     f"{cmp(cdec, bdec, lower_better=False)}\n")
-        else:
-            L.append(f"- faster decode (tok/s, higher better): "
-                     f"{cmp(coral['decode_p50'], baseten['decode_p50'], lower_better=False)} "
-                     "[pilot per-call decode is unreliable — see Diagnostics]\n")
-        L.append(f"- higher cache hit rate: "
-                 f"{cmp(coral['cache_hit_rate'], baseten['cache_hit_rate'], lower_better=False)}\n")
-        L.append("- These point in different directions, which is the whole point of separating "
-                 "'tokens/sec' from 'time & cost to ACCEPTED work'. Do not generalize from n=3.\n")
+        decs = {a: (pb.get(a) or {}).get("visible_decode_tok_s_p50") for a in arms}
+        decs = {a: v for a, v in decs.items() if v}
+        if decs:
+            win = max(decs, key=decs.get)
+            L.append(f"- faster decode (controlled probe tok/s): **{win}** ("
+                     + ", ".join(f"{a} {v:.0f}" for a, v in decs.items()) + ")\n")
     else:
         L.append("_No runs recorded._\n")
+
+    # Trace replay
+    L.append("\n## Trace replay (inference isolated from agent behavior)\n")
+    L.append(trace_replay_section())
 
     # Diagnostics
     L.append("\n## Diagnostics (post-pilot, from harness/pilot_diagnostics.py)\n")

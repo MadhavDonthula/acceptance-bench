@@ -103,16 +103,17 @@ def git_commit_all(workspace: str, message: str) -> None:
     git(workspace, "commit", "-q", "--allow-empty", "-m", message)
 
 
-def build_run_plan(seed: int, runs_per_arm: int = 3) -> list[str]:
-    """`runs_per_arm` runs per provider, interleaved in randomized C/B pairs
-    (sequential, never concurrent). Returns an ordered list of provider names of
-    length 2*runs_per_arm. Pilot uses 3; the pre-registered main experiment uses
-    10 (set RUNS_PER_ARM=10). The pair index is the time-slot used for paired
-    bootstrap analysis."""
+def build_run_plan(seed: int, runs_per_arm: int = 3, arms=("coral", "baseten")) -> list[str]:
+    """`runs_per_arm` runs per arm, interleaved in randomized groups (one of each
+    arm per group), strictly sequential. Returns an ordered list of arm names of
+    length runs_per_arm*len(arms). Pilot: 3 arms? no — pilot used 2 arms × 3. The
+    pre-registered main experiment uses 3 arms × 10 (RUNS_PER_ARM=10,
+    ARMS=coral,baseten,baseten_sept). The group index is the time-slot used for
+    paired bootstrap analysis."""
     rng = random.Random(seed)
     plan: list[str] = []
     for _ in range(runs_per_arm):
-        pair = ["coral", "baseten"]
-        rng.shuffle(pair)
-        plan.extend(pair)
+        group = list(arms)
+        rng.shuffle(group)
+        plan.extend(group)
     return plan
