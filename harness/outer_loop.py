@@ -222,7 +222,8 @@ def main() -> int:
     _require_keys()
 
     seed = int(os.environ.get("PILOT_SEED", "20261103"))
-    plan = build_run_plan(seed)
+    runs_per_arm = int(os.environ.get("RUNS_PER_ARM", "3"))
+    plan = build_run_plan(seed, runs_per_arm)
 
     os.makedirs(RAW_DIR, exist_ok=True)
     # fresh pilot: clear prior pilot artifacts (calls.jsonl kept append-only within a pilot)
@@ -232,6 +233,7 @@ def main() -> int:
 
     plan_meta = {
         "seed": seed,
+        "runs_per_arm": runs_per_arm,
         "order": plan,
         "started": _now(),
         "caps": {"max_rounds": MAX_ROUNDS, "max_round_s": MAX_ROUND_SECONDS,

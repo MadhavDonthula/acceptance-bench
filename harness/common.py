@@ -30,7 +30,10 @@ PROXY_PORT = int(os.environ.get("PROXY_PORT", "8787"))
 MAX_ROUNDS = 6
 MAX_ROUND_SECONDS = 10 * 60
 MAX_RUN_SECONDS = 25 * 60
-SPEND_CAP_USD = 5.0
+# Raised from the $5 pilot guard for the pre-registered main experiment (see
+# PREREGISTRATION.md budget): 10 runs/arm × 2 arms ≈ $2.4 + probes/preflight +
+# margin. $12 covers the 2-arm plan; bump to ~$18 if the 3rd (Sept) arm is enabled.
+SPEND_CAP_USD = float(os.environ.get("SPEND_CAP_USD", "12.0"))
 
 
 def proxy_base_url(provider: str, run_id: str, rnd: int) -> str:
@@ -101,12 +104,15 @@ def git_commit_all(workspace: str, message: str) -> None:
     git(workspace, "commit", "-q", "--allow-empty", "-m", message)
 
 
-def build_run_plan(seed: int) -> list[str]:
-    """3 runs per provider, interleaved in randomized pairs (sequential, never
-    concurrent). Returns an ordered list of provider names, length 6."""
+def build_run_plan(seed: int, runs_per_arm: int = 3) -> list[str]:
+    """`runs_per_arm` runs per provider, interleaved in randomized C/B pairs
+    (sequential, never concurrent). Returns an ordered list of provider names of
+    length 2*runs_per_arm. Pilot uses 3; the pre-registered main experiment uses
+    10 (set RUNS_PER_ARM=10). The pair index is the time-slot used for paired
+    bootstrap analysis."""
     rng = random.Random(seed)
     plan: list[str] = []
-    for _ in range(3):  # three C/B pairs
+    for _ in range(runs_per_arm):
         pair = ["coral", "baseten"]
         rng.shuffle(pair)
         plan.extend(pair)

@@ -691,3 +691,46 @@ history proves the order of decisions.
   was an artifact of reasoning-contaminated, bursty `decode_s`. Clean measurement
   halves the gap (1.85×, not 2.6×) — and Coral's slower per-call decode is real.
 - Coral's cost win is a CACHE story (67% of the gap), not mainly a price story.
+
+---
+
+## 2026-11-04 (diagnostics round 2 + pre-registration)
+
+### Diagnostic 1: work per run — Baseten's speed is per-call, not fewer calls
+- **Observed (pilot, per run averages):**
+  - coral: calls/run 33.3, model_time/run **38.4s**, visible_out/run 5636, reasoning/run **6574**.
+  - baseten: calls/run 28.0, model_time/run **21.5s**, visible_out/run 5536, reasoning/run **4778**.
+- **Decision/finding:** Baseten's faster time-to-accept (33.7s vs 48.2s) comes from
+  **less model time per run** (21.5 vs 38.4s), driven by faster per-call decode
+  (probe: 1.85×) AND **lighter reasoning** (4778 vs 6574 tokens) — NOT from fewer
+  calls (28 vs 33, similar) nor lighter visible output (~5600 both). Coral both
+  reasons more and decodes slower.
+- **Surprise:** visible output is nearly identical across arms; the model-time gap
+  is almost entirely decode speed + reasoning volume.
+
+### Diagnostic 2: cache locality + affinity stability
+- **Observed (2a):** uncached input is overwhelmingly **later-in-round**, not
+  round-starts (coral 98.7% later; baseten 96.8% later). So Baseten's misses are on
+  the growing mid-round context, not session/round starts.
+- **Observed (2b):** the `x-session-affinity` value (sha256[:8]) is **identical
+  across all `--continue` rounds within every run** on both arms (distinct=1 per
+  run). **OpenCode keeps one stable session/affinity ID across --continue
+  processes.**
+- **Decision:** No harness correction needed — affinity is already stable per run
+  on both arms (the proposed "one stable affinity ID per run" fix is satisfied by
+  OpenCode's `--continue`). Baseten's ~51% hit rate is therefore a genuine KV-cache
+  property for this long-agent-session workload, not affinity churn, cold start, or
+  a harness artifact. (Hashes only; raw affinity values never logged.)
+
+### Pre-registration drafted (not run)
+- Wrote `PREREGISTRATION.md`: arms A=coral-fast, B=baseten-1017-fast, conditional
+  C=baseten-sept-fast (if Coral's snapshot = September); **10 runs/arm** in
+  randomized interleaved C/B pairs (pair index = time slot); caps unchanged;
+  primary metrics time & cost per accepted; secondary rounds/calls/model-latency/
+  cache-hit/controlled-probe decode; analysis = **paired bootstrap 95% CIs
+  resampling the 10 pairs** (no NHST); budget from pilot per-run cost.
+- **Harness changes to support it:** `build_run_plan(seed, runs_per_arm)` + env
+  `RUNS_PER_ARM` (default 3); **spend guard raised $5 → $12** (env `SPEND_CAP_USD`;
+  bump to $18 if arm C enabled). Decode locked to the controlled probe (pilot
+  per-call decode is unreliable).
+- **Not executed.** Awaiting go-ahead to run the main experiment.
