@@ -227,6 +227,9 @@ async def proxy_endpoint(request: Request):
         "first_byte": None,
         "first_token": None,
         "last_token": None,
+        # split content vs reasoning deltas so decode-speed can be validated
+        "first_content": None, "last_content": None, "n_content": 0,
+        "first_reasoning": None, "last_reasoning": None, "n_reasoning": 0,
         "usage_raw": None,
         "buf": "",
         "err_bytes": bytearray(),
@@ -252,9 +255,20 @@ async def proxy_endpoint(request: Request):
             choices = obj.get("choices") or []
             if choices:
                 delta = choices[0].get("delta") or {}
-                content = delta.get("content") or delta.get("reasoning_content") or ""
-                if content:
-                    now = time.monotonic()
+                c = delta.get("content") or ""
+                rc = delta.get("reasoning_content") or ""
+                now = time.monotonic()
+                if c:
+                    state["n_content"] += 1
+                    if state["first_content"] is None:
+                        state["first_content"] = now
+                    state["last_content"] = now
+                if rc:
+                    state["n_reasoning"] += 1
+                    if state["first_reasoning"] is None:
+                        state["first_reasoning"] = now
+                    state["last_reasoning"] = now
+                if c or rc:
                     if state["first_token"] is None:
                         state["first_token"] = now
                     state["last_token"] = now
@@ -332,6 +346,19 @@ async def _finalize(rec, state, status, rate_headers, provider, t_start, resp_ct
             (state["last_token"] - state["first_token"])
             if (state["first_token"] and state["last_token"]) else None
         ),
+        # split diagnostics: does the provider stream reasoning deltas, and how
+        # many content vs reasoning chunks, so decode tok/s can be validated.
+        "n_content_deltas": state["n_content"],
+        "n_reasoning_deltas": state["n_reasoning"],
+        "content_decode_s": (
+            (state["last_content"] - state["first_content"])
+            if (state["first_content"] and state["last_content"]) else None
+        ),
+        "reasoning_decode_s": (
+            (state["last_reasoning"] - state["first_reasoning"])
+            if (state["first_reasoning"] and state["last_reasoning"]) else None
+        ),
+        "ttft_content_s": (state["first_content"] - t_start) if state["first_content"] else None,
         "usage_raw": usage_raw,
         "usage_parsed": usage.to_dict(),
         "uncached_tokens": usage.uncached_tokens,

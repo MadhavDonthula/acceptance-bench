@@ -637,3 +637,57 @@ history proves the order of decisions.
   `harness/billing_check.py` records the comparison.
 - **Surprises:** The "Baseten billing ignores cache" hypothesis was also a lag
   artifact — once aggregation settled, billing credited the cache.
+
+---
+
+## 2026-11-04 (pilot diagnostics, no new pilot runs)
+
+### 1. Decode-speed validity — pilot per-call decode is UNRELIABLE
+- **Observed:** Both providers STREAM reasoning deltas (`reasoning_content`); the
+  proxy timestamps them (reasoning-on probe: coral 46 / baseten 34 reasoning
+  chunks). With `reasoning_effort=high`, output_tokens includes a large hidden
+  reasoning count while visible content streams in a short burst, so per-call
+  `decode_s` is tiny and noisy. Recomputed over calls with ≥200 visible output
+  tokens, decode tok/s is absurd (coral p95 26,850; baseten p95 625,250). The
+  earlier SUMMARY figure (817 / 2165) was noise-dominated.
+- **Decision:** Mark per-call pilot decode tok/s UNRELIABLE in SUMMARY; use the
+  controlled probe (below) as authoritative and feed it into the Amdahl check.
+- **Added:** proxy now records `n_content_deltas`, `n_reasoning_deltas`,
+  `content_decode_s`, `reasoning_decode_s`, `ttft_content_s`.
+
+### 2. Controlled long-generation probe (authoritative decode)
+- **Observed:** same prompt, ~750 output tokens, `reasoning_effort=none` (0
+  reasoning), 5 reps: **coral 370 tok/s, baseten 685 tok/s** → Baseten decodes
+  **1.85× faster** (same direction as the crude pilot ratio, far smaller
+  magnitude). ~2 tokens/content-chunk both; neither streamed reasoning here.
+
+### 3. Speed vs rounds
+- **Observed:** model latency/call p50 coral 0.70s vs baseten 0.48s (p95 3.66 vs
+  1.85) — consistent with Baseten's faster decode. OpenCode startup/round ~0.66–
+  0.69s both (small, provider-independent). Agent time/round p50 coral 11.7s vs
+  baseten 15.3s; coral ran more rounds (median 3 vs 2), so Coral's higher wall is
+  partly MORE REVIEW ROUNDS, not slower model calls.
+
+### 4. Cost decomposition
+- **Observed:** cost gap (baseten − coral) = $0.459. **Price effect $0.150 (33%)**
+  (Baseten's higher unit prices); **token/cache effect $0.309 (67%)** dominates —
+  Baseten billed 849k uncached input vs Coral 117k (Coral cached 2.02M). Baseten's
+  tokens even at Coral's prices ($0.446) still far exceed Coral's own ($0.137).
+- **Decision:** Coral's cost advantage here is mostly its CACHE behavior, not
+  price. Reported in SUMMARY §4.
+
+### 5. Cache misses — not a cold-start artifact
+- **Observed:** excluding each run's first call changes hit rate negligibly
+  (coral 94.5%→94.6%, baseten 50.8%→50.8%); first calls are 0.15–0.23% of uncached
+  tokens. Baseten's lower hit rate is pervasive mid-session, not session-start.
+
+### 6. Optional third arm
+- Added `[providers.baseten_sept]` (DeepSeek-V4.1-Flash-Fast, Sept snapshot,
+  `enabled=false`) to config/providers.toml for a future snapshot-sensitivity
+  comparison. NOT in the run plan; not run.
+
+### Surprises
+- The single biggest headline-risk was the decode number: the pilot's "2165 tok/s"
+  was an artifact of reasoning-contaminated, bursty `decode_s`. Clean measurement
+  halves the gap (1.85×, not 2.6×) — and Coral's slower per-call decode is real.
+- Coral's cost win is a CACHE story (67% of the gap), not mainly a price story.

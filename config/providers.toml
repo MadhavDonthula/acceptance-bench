@@ -34,3 +34,15 @@ model_default = "deepseek-ai/DeepSeek-V4.1-Flash-1017-Fast"
 price_input = 0.60
 price_cached_read = 0.014
 price_output = 2.40
+
+# OPTIONAL third arm — NOT run yet (not in the interleaved run plan). Baseten's
+# September snapshot, for a future snapshot-sensitivity comparison vs the Oct-17
+# slug. Same key/prices/tier as the baseten arm; only the snapshot differs.
+[providers.baseten_sept]
+base_url = "https://inference.baseten.co/v1"
+api_key_env = "BASETEN_API_KEY"
+model = "deepseek-ai/DeepSeek-V4.1-Flash-Fast"
+enabled = false
+price_input = 0.60
+price_cached_read = 0.014
+price_output = 2.40

@@ -204,11 +204,91 @@ def make_chart(by_run):
     return path
 
 
-def amdahl_section(coral, baseten, by_run):
-    if not (coral["decode_p50"] and baseten["decode_p50"]):
-        return ("Amdahl check: not computable — no successful per-call decode data recorded "
-                "on one or both arms.\n")
-    s = coral["decode_p50"] / baseten["decode_p50"]  # model-throughput speedup, coral vs baseten
+def diagnostics_section(diag) -> str:
+    if not diag:
+        return ("_No post-pilot diagnostics found (run `python -m harness.pilot_diagnostics`)._\n")
+    L = []
+    d1 = diag.get("step1_decode_validity", {})
+    d2 = diag.get("step2_longgen_probe", {})
+    d3 = diag.get("step3_speed_vs_rounds", {})
+    d4 = diag.get("step4_cost_decomposition", {})
+    d5 = diag.get("step5_cache_misses", {})
+
+    L.append("### 1. Decode-speed validity\n")
+    L.append("- **Both providers stream reasoning deltas**, and the proxy timestamps them, so with "
+             "`reasoning_effort=high` the pilot `decode_s` is contaminated by reasoning bursts. The "
+             "per-call pilot decode tok/s is therefore **unreliable** (over calls with ≥200 visible "
+             "output tokens the p95 explodes):\n")
+    for p in ("coral", "baseten"):
+        s = d1.get(p, {})
+        L.append(f"  - {p}: incl-reasoning p50 {_fmt(s.get('decode_tok_s_incl_reasoning_p50'),0)} / "
+                 f"p95 {_fmt(s.get('decode_tok_s_incl_reasoning_p95'),0)} tok/s; visible-only p50 "
+                 f"{_fmt(s.get('decode_tok_s_visible_only_p50'),0)} tok/s (n="
+                 f"{s.get('n_calls_decode_ge200vis')} qualifying calls)\n")
+    L.append("\n### 2. Controlled long-generation probe (authoritative decode)\n")
+    L.append("- Same prompt, ~750 output tokens, `reasoning_effort=none` (0 reasoning tokens), 5 reps:\n")
+    for p in ("coral", "baseten"):
+        s = d2.get(p, {})
+        L.append(f"  - **{p}: {_fmt(s.get('visible_decode_tok_s_p50'),0)} tok/s** "
+                 f"(median output {s.get('output_tokens_median')} tok, "
+                 f"{_fmt(s.get('tokens_per_content_chunk_p50'),2)} tokens/content-chunk, "
+                 f"reasoning streamed: {bool(s.get('streamed_reasoning_deltas_total'))})\n")
+    if d2.get("coral", {}).get("visible_decode_tok_s_p50") and d2.get("baseten", {}).get("visible_decode_tok_s_p50"):
+        r = d2["baseten"]["visible_decode_tok_s_p50"] / d2["coral"]["visible_decode_tok_s_p50"]
+        L.append(f"  - → Baseten decodes **{r:.2f}× faster** than Coral on clean long generation "
+                 "(directionally same as the pilot's crude number, but far smaller magnitude).\n")
+
+    L.append("\n### 3. Speed vs rounds (per provider)\n")
+    L.append("| metric | coral | baseten |\n|---|---|---|\n")
+    def drow(label, key):
+        cv = (d3.get("coral", {}) or {}).get(key)
+        bv = (d3.get("baseten", {}) or {}).get(key)
+        L.append(f"| {label} | {_fmt(cv,3)} | {_fmt(bv,3)} |\n")
+    drow("agent time / round p50 (s)", "agent_time_per_round_p50")
+    drow("agent time / round p95 (s)", "agent_time_per_round_p95")
+    drow("model latency / call p50 (s)", "model_latency_per_call_p50")
+    drow("model latency / call p95 (s)", "model_latency_per_call_p95")
+    drow("OpenCode startup / round p50 (s)", "opencode_startup_per_round_p50")
+
+    L.append("\n### 4. Cost decomposition (why the cost gap?)\n")
+    if d4:
+        L.append(f"- cost gap (baseten − coral): **${_fmt(d4.get('gap_baseten_minus_coral'),4)}**\n")
+        L.append(f"- **price effect: ${_fmt(d4.get('price_effect'),4)} "
+                 f"({_fmt(d4.get('price_effect_pct_of_gap'),0)}%)** — Baseten's higher unit prices.\n")
+        L.append(f"- **token/cache effect: ${_fmt(d4.get('token_cache_effect'),4)} "
+                 f"({_fmt(d4.get('token_cache_effect_pct_of_gap'),0)}%)** — Baseten billed far more "
+                 "uncached input (lower cache hit). This DOMINATES the gap.\n")
+        t = d4.get("tokens", {})
+        L.append(f"- tokens: coral uncached={t.get('coral',{}).get('U')} cached={t.get('coral',{}).get('C')}; "
+                 f"baseten uncached={t.get('baseten',{}).get('U')} cached={t.get('baseten',{}).get('C')}\n")
+        L.append(f"- Baseten's tokens priced at Coral's rates = "
+                 f"${_fmt(d4.get('baseten_tokens_at_coral_prices'),4)} (vs coral's own "
+                 f"${_fmt(d4.get('coral_own_cost'),4)}): still higher, confirming token/cache behavior "
+                 "is the bigger driver than price.\n")
+
+    L.append("\n### 5. Cache misses — session-start vs mid-session\n")
+    for p in ("coral", "baseten"):
+        s = d5.get(p, {})
+        L.append(f"- {p}: hit rate all calls {_fmt((s.get('hit_rate_all_calls') or 0)*100,1)}%, "
+                 f"excluding each run's first call {_fmt((s.get('hit_rate_excluding_first_call') or 0)*100,1)}% "
+                 f"(first calls = {_fmt((s.get('first_calls_share_of_uncached') or 0)*100,2)}% of uncached).\n")
+    L.append("- → Baseten's lower hit rate is **not** a cold-start artifact; it is pervasive "
+             "mid-session. First calls are a negligible share of uncached tokens on both arms.\n")
+    return "".join(L)
+
+
+def amdahl_section(coral, baseten, by_run, diag=None):
+    # Prefer the controlled-probe decode speeds (valid) over per-call pilot decode.
+    cdec = bdec = None
+    if diag:
+        pb = diag.get("step2_longgen_probe", {})
+        cdec = (pb.get("coral") or {}).get("visible_decode_tok_s_p50")
+        bdec = (pb.get("baseten") or {}).get("visible_decode_tok_s_p50")
+    cdec = cdec or coral.get("decode_p50")
+    bdec = bdec or baseten.get("decode_p50")
+    if not (cdec and bdec):
+        return ("Amdahl check: not computable — no decode data.\n")
+    s = cdec / bdec  # model-throughput speedup, coral vs baseten
     # f = model share of wall on the BASELINE (baseten) arm
     bt_runs = [m for m in by_run.values() if m["provider"] == "baseten" and m["f_model_wall"]]
     f = _pct([m["f_model_wall"] for m in bt_runs], 50) if bt_runs else None
@@ -244,6 +324,8 @@ def main():
                   for name, p in load_providers().items()}
     except Exception:
         prices = {}
+
+    diag = _load_json(os.path.join(PREFLIGHT, "pilot_diagnostics.json"))
 
     pilot_calls = [c for c in calls if str(c.get("run_id", "")).startswith("run")]
     by_run = build_run_metrics(runs, rounds, pilot_calls)
@@ -311,7 +393,7 @@ def main():
         row("median rounds", "rounds_median", nd=1)
         row("TTFT p50 (s)", "ttft_p50", nd=3)
         row("TTFT p95 (s)", "ttft_p95", nd=3)
-        row("decode tok/s p50", "decode_p50", nd=1)
+        row("decode tok/s p50 [UNRELIABLE — see Diagnostics]", "decode_p50", nd=1)
         row("cache hit rate", "cache_hit_rate", nd=1, pct=True, mul=100)
         row("total cost ($) — primary (public prices, w/ cache discount)", "total_cost", nd=4)
         row("total cost ($) — NO cache discount (worst-case upper bound)",
@@ -330,7 +412,9 @@ def main():
                  "either provider bills.*\n")
 
         L.append("\n## Amdahl check\n")
-        L.append(amdahl_section(coral, baseten, by_run))
+        L.append("*(Uses the controlled-probe decode speeds from Diagnostics §2, not the unreliable "
+                 "per-call pilot decode.)*\n")
+        L.append(amdahl_section(coral, baseten, by_run, diag))
 
         # Plain recorded observations (NOT claims — n=3)
         def cmp(a, b, lower_better=True):
@@ -344,14 +428,26 @@ def main():
                  f"{cmp(coral['time_per_accepted'], baseten['time_per_accepted'])}\n")
         L.append(f"- cheaper per ACCEPTED (primary cost): "
                  f"{cmp(coral['cost_per_accepted'], baseten['cost_per_accepted'])}\n")
-        L.append(f"- faster decode (tok/s, higher better): "
-                 f"{cmp(coral['decode_p50'], baseten['decode_p50'], lower_better=False)}\n")
+        pb = (diag or {}).get("step2_longgen_probe", {})
+        cdec = (pb.get("coral") or {}).get("visible_decode_tok_s_p50")
+        bdec = (pb.get("baseten") or {}).get("visible_decode_tok_s_p50")
+        if cdec and bdec:
+            L.append(f"- faster decode (controlled probe tok/s, higher better): "
+                     f"{cmp(cdec, bdec, lower_better=False)}\n")
+        else:
+            L.append(f"- faster decode (tok/s, higher better): "
+                     f"{cmp(coral['decode_p50'], baseten['decode_p50'], lower_better=False)} "
+                     "[pilot per-call decode is unreliable — see Diagnostics]\n")
         L.append(f"- higher cache hit rate: "
                  f"{cmp(coral['cache_hit_rate'], baseten['cache_hit_rate'], lower_better=False)}\n")
         L.append("- These point in different directions, which is the whole point of separating "
                  "'tokens/sec' from 'time & cost to ACCEPTED work'. Do not generalize from n=3.\n")
     else:
         L.append("_No runs recorded._\n")
+
+    # Diagnostics
+    L.append("\n## Diagnostics (post-pilot, from harness/pilot_diagnostics.py)\n")
+    L.append(diagnostics_section(diag))
 
     # Chart
     L.append("\n## Time decomposition chart\n")
