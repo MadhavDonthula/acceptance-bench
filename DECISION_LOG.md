@@ -351,3 +351,20 @@ history proves the order of decisions.
 - **Surprises:** The non-atomic mutant never once sneaked past — on this machine
   the SELECT→INSERT window under 10 barrier-released threads is wide enough that
   duplicates occur every time.
+
+---
+
+## 2026-11-04 (preflight run) — credentials live; loader hardened
+
+- **Observed:** Operator added real keys. Baseten validated immediately (200, 21
+  models). First Coral key (34 chars) returned 401 `invalid_api_key` (Coral said
+  mint/rotate; new keys take ~30s). After rotation, a hand-edited `.env` contained
+  a stray `=` line (empty variable name), which crashed `load_dotenv` with
+  `OSError: [Errno 22]` from `os.environ.setdefault('', ...)`.
+- **Decision:** Hardened `load_dotenv` to skip lines with an empty key (never
+  crash on a malformed line). Removed the stray line from `.env` (only lines with
+  an empty key-part were dropped; real KEY=VALUE lines untouched).
+- **Result:** Coral `/v1/models` now 200 (2 models), Baseten 200 (21 models).
+  Both arms authenticated; proceeding to full preflight steps 2–5.
+- **Surprises:** The 401 was a genuine inactive/old key, and a text-editor save
+  introduced a stray `=` line — a good reason the loader must be crash-proof.

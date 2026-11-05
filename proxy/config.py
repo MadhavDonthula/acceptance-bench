@@ -27,6 +27,8 @@ def load_dotenv(path: str = ENV_PATH) -> None:
                 continue
             key, _, val = line.partition("=")
             key = key.strip()
+            if not key:  # skip malformed lines (e.g. a stray '=') rather than crash
+                continue
             val = val.strip().strip('"').strip("'")
             os.environ.setdefault(key, val)
 
