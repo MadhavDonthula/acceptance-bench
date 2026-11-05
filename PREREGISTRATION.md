@@ -18,24 +18,31 @@ Direction is NOT assumed. The pilot (n=3, not powered) hinted Baseten faster to
 accept, Coral ~4× cheaper via cache — the main experiment tests whether those
 hold with CIs. Pilot results do not constrain H1/H2 here.
 
-## Arms
+## Arms (all three run, interleaved)
 - **A. coral-fast** — `deepseek-v4.1-flash-fast` @ CoralBricks.
 - **B. baseten-1017-fast** — `deepseek-ai/DeepSeek-V4.1-Flash-1017-Fast` @ Baseten
   (confirmed Oct-17 snapshot).
-- **C. baseten-sept-fast (CONDITIONAL)** — `deepseek-ai/DeepSeek-V4.1-Flash-Fast`
-  (Sept snapshot). Run **only if** Coral's served snapshot turns out to be the
-  September build (snapshot match currently UNRESOLVED). Pre-wired as
-  `[providers.baseten_sept]` (`enabled=false`) in config/providers.toml.
+- **C. baseten-sept-fast** — `deepseek-ai/DeepSeek-V4.1-Flash-Fast` (Sept snapshot)
+  @ Baseten. **Enabled unconditionally** (updated 2026-11-04). Wired as
+  `[providers.baseten_sept]` in config/providers.toml.
 
-Snapshot match is a pre-registered confound: if unresolved at run time, report B
-vs A as primary and treat C as an exploratory snapshot-sensitivity arm.
+**Why C is now unconditional:** the pilot showed Coral emitting **~38% more
+reasoning tokens** than Baseten-1017 under *identical* settings (6,574 vs 4,778
+per run), and reasoning volume drove ~15% of the model-time gap. That is exactly
+the kind of behavioral difference a snapshot mismatch would produce, so the
+snapshot confound is **material**, not hypothetical. Running B and C (two Baseten
+snapshots on the same stack) directly measures the snapshot effect and lets us
+tell a snapshot difference apart from a serving-stack difference. A vs B remains
+primary; B vs C isolates the snapshot.
 
 ## Design
-- **10 runs per arm** (vs 3 in the pilot), interleaved in **randomized C/B pairs**,
-  **strictly sequential, never concurrent**. Set `RUNS_PER_ARM=10`.
+- **10 runs per arm** (vs 3 in the pilot) across **3 arms** = 30 runs, interleaved
+  in **randomized A/B/C triples**, **strictly sequential, never concurrent**. Set
+  `RUNS_PER_ARM=10 ARMS=coral,baseten,baseten_sept`.
 - Order from a **recorded seed** (`PILOT_SEED`); `pilot_plan.json` stores seed +
-  order + timestamps. The **pair index is the time slot** used for paired analysis
-  (both arms run adjacently, so time-of-day / load effects cancel within a pair).
+  order + timestamps. The **triple index is the time slot** used for paired
+  analysis (all three arms run adjacently, so time-of-day / load effects cancel
+  within a triple).
 - Fresh starter copy per run → `git init` → OpenCode on `ticket.md` → commit →
   deterministic judge → feedback into the SAME session (`--continue`) next round.
 
@@ -53,9 +60,10 @@ vs A as primary and treat C as an exploratory snapshot-sensitivity arm.
 - 6 rounds/run, 10 min/round, 25 min/run (unchanged).
 - Each run ends with exactly one outcome: accepted | round_cap | timeout |
   agent_error | provider_error. Failed runs are **recorded, never dropped**.
-- **Spend guard raised to $12** (`SPEND_CAP_USD`, was $5). If arm C is enabled,
-  raise to **$18**. The guard stops the experiment before the next run if
-  cumulative public-price spend would exceed the cap.
+- **Spend guard set to $18** (`SPEND_CAP_USD`, was $5 pilot → $12 two-arm → **$18
+  three-arm**, now that C is unconditional and TRACE REPLAY is added). The guard
+  stops the experiment before the next run if cumulative public-price spend would
+  exceed the cap.
 
 ## Metrics
 **Primary (pre-specified):**
@@ -74,11 +82,12 @@ NOT by per-call pilot decode — the latter is reasoning-contaminated and unreli
 
 ## Analysis (pre-specified)
 - **Bootstrap 95% CIs by resampling runs**, paired by time slot: for each of 10,000
-  bootstrap iterations, resample the 10 **pairs** with replacement (keeping each
-  pair's A and B together), recompute each arm's primary metric and the **paired
-  A−B difference**; report the 2.5/97.5 percentiles.
-- Report CIs for each arm's primary metrics AND for the A−B (and, if enabled, C−B)
-  differences. **No NHST / p-values** — CIs + effect sizes only.
+  bootstrap iterations, resample the 10 **triples** with replacement (keeping each
+  triple's A, B, C together), recompute each arm's primary metric and the paired
+  differences; report the 2.5/97.5 percentiles.
+- Report CIs for each arm's primary metrics AND for **A−B (primary: stack effect)**
+  and **B−C (snapshot effect)** differences. **No NHST / p-values** — CIs + effect
+  sizes only.
 - Acceptance is binary (all 7 checks). Report acceptance counts per arm; if an arm
   has 0 accepts, cost/time-per-accepted is undefined (reported as such, not 0).
 - Non-accepted outcomes (timeout/round_cap/agent_error/provider_error) reported in
@@ -90,14 +99,52 @@ NOT by per-call pilot decode — the latter is reasoning-contaminated and unreli
 ## Budget estimate (from recorded pilot per-run cost, public prices)
 | arm | pilot mean $/run | 10 runs | notes |
 |---|---|---|---|
-| coral-fast | 0.0455 | ~$0.46 | high cache hit → cheap |
-| baseten-1017-fast | 0.1987 | ~$1.99 | lower cache hit + higher prices |
-| **subtotal A+B** | | **~$2.44** | |
+| A coral-fast | 0.0455 | ~$0.46 | high cache hit → cheap |
+| B baseten-1017-fast | 0.1987 | ~$1.99 | lower cache hit + higher prices |
+| C baseten-sept-fast | ~0.1987 | ~$1.99 | assume ≈ B (same tier/prices) |
+| **subtotal A+B+C (30 runs)** | | **~$4.44** | |
 | + preflight + controlled probes + diagnostics | | ~$0.5 | |
-| + ~50% margin (runs may hit more rounds) | | | |
-| **planned guard (A+B)** | | **$12** | comfortable headroom |
-| conditional C (sept-fast) | ~0.1987 | ~$1.99 | only if Coral=Sept snapshot |
-| **guard if C enabled** | | **$18** | |
+| + TRACE REPLAY (see below) | | ~$2.5 | 6 sessions × 3 arms |
+| + margin (runs may hit more rounds) | | ~$2 | |
+| **spend guard** | | **$18** | covers 3 arms + trace replay |
+
+## Secondary experiment: TRACE REPLAY (pre-registered)
+**Purpose:** isolate *inference speed and caching* from *agent behavior*. The main
+experiment confounds them — each arm's agent makes different calls (e.g. Coral
+emits ~38% more reasoning), so wall/cost differences mix "the model/stack is
+faster" with "the agent did different work." Trace replay fixes the request
+sequence and varies only the provider.
+
+**Capture (opt-in, during the main experiment):**
+- Full request bodies (including `messages`) are captured for **3 arm-A (coral)
+  runs and 3 arm-B (baseten-1017) runs** — the first 3 run_ids of each, recorded in
+  `pilot_plan.json`.
+- Bodies are written under `runs/<run_id>/bodies/` which is **gitignored and never
+  committed** (they may contain task content; treat as potentially sensitive).
+  Only non-body metadata (timings) goes to `results/raw/`.
+
+**Replay protocol:**
+- For each captured session (6 total), replay its **exact ordered request
+  sequence** against **ALL three arms** (coral, baseten-1017, baseten-sept),
+  reproducing the **original inter-call wall gaps** (from recorded timestamps).
+- Each replay uses a **fresh session/affinity ID** (new uuid) so caching starts
+  cold and is attributable to the provider, not carried state.
+- Only the target arm's `model` is substituted; messages/params are the captured
+  originals. Direct to the provider (no OpenCode), non-interactive.
+- 6 sessions × 3 arms = **18 replays**.
+
+**Metrics (per call & per session):** per-call TTFT, decode time (content-only),
+cache hit rate, model time per session, cost per session (public prices). Reported
+with the same paired-bootstrap CIs, resampling the 6 captured sessions.
+
+**Budget:** each captured session ≈ the main run's token volume (~17k input +
+~12k output). 18 replays ≈ 6 × (coral+1017+sept) ≈ ~$2.5 at public prices. Folded
+into the $18 guard above.
+
+**Interpretation:** if trace replay shows Baseten faster per identical session but
+the main experiment shows a smaller end-to-end gap, the agent-behavior difference
+(Coral's extra reasoning, more rounds) is offsetting raw inference speed — which is
+the whole point of separating the two.
 
 ## Carried-over confounds / limitations
 Snapshot match (A vs B) unresolved; Coral FP4 vs Baseten undisclosed precision;

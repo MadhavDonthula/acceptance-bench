@@ -734,3 +734,45 @@ history proves the order of decisions.
   bump to $18 if arm C enabled). Decode locked to the controlled probe (pilot
   per-call decode is unreliable).
 - **Not executed.** Awaiting go-ahead to run the main experiment.
+
+---
+
+## 2026-11-04 (pre-registration update — arm C unconditional + trace replay)
+
+### Enable arm C (baseten-sept-fast) unconditionally
+- **Observed:** The pilot showed Coral emitting **~38% more reasoning tokens**
+  than Baseten-1017 under IDENTICAL settings (6,574 vs 4,778 /run), and this
+  reasoning-volume difference drove ~15% of the model-time gap (below).
+- **Options:** keep C conditional on resolving Coral's snapshot vs run C always.
+- **Decision:** Run C unconditionally. A behavioral divergence this large under
+  identical settings is exactly what a snapshot mismatch produces, so the snapshot
+  confound is **material**. B and C are two Baseten snapshots on the same serving
+  stack, so B−C isolates the snapshot effect while A−B stays the primary
+  (stack) comparison. Spend guard raised to **$18**; run plan generalized to 3
+  arms interleaved in randomized triples.
+- **Effect:** `ARMS=coral,baseten,baseten_sept RUNS_PER_ARM=10`.
+
+### Model-time gap decomposition (pilot)
+- **Observed:** per-run model time coral 38.4s vs baseten 21.5s (gap **16.9s**).
+  Using controlled-probe decode rates (coral 370, baseten 685 tok/s) on each arm's
+  total output tokens (coral 12,210 incl 6,574 reasoning; baseten 10,314 incl
+  4,778 reasoning): estimated decode 33.0s vs 15.1s (est gap 18.0s, ≈ observed).
+  Decomposition of that gap: **decode-SPEED effect ≈ 15.2s (≈85%)**,
+  **token-VOLUME effect ≈ 2.8s (≈15%)** (Coral's +1,796 reasoning / +1,896 total
+  tokens). Baseten's per-run prefill/TTFT sum is actually HIGHER (12.9s vs 7.8s),
+  partially offsetting, so the net model-time advantage is decode-dominated.
+- **Decision:** Report decode speed as the dominant driver of the model-time gap;
+  reasoning-volume (snapshot-sensitive) is secondary but real — another reason to
+  run arm C.
+
+### Secondary experiment: TRACE REPLAY (pre-registered, not run)
+- Added to PREREGISTRATION.md: opt-in full-body capture for the first 3 coral and
+  first 3 baseten-1017 runs (bodies gitignored, never committed); replay each
+  captured session's exact request sequence with original inter-call gaps against
+  all 3 arms, fresh affinity per replay; measure TTFT/decode/cache/model-time/cost
+  per session; paired bootstrap over the 6 sessions. Purpose: isolate inference
+  speed + caching from agent behavior. Budget ~$2.5, inside the $18 guard.
+
+### Order of operations
+- PREREGISTRATION.md is committed BEFORE any main-experiment run so git timestamps
+  prove the design preceded the data.

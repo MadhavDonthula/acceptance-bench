@@ -30,10 +30,9 @@ PROXY_PORT = int(os.environ.get("PROXY_PORT", "8787"))
 MAX_ROUNDS = 6
 MAX_ROUND_SECONDS = 10 * 60
 MAX_RUN_SECONDS = 25 * 60
-# Raised from the $5 pilot guard for the pre-registered main experiment (see
-# PREREGISTRATION.md budget): 10 runs/arm × 2 arms ≈ $2.4 + probes/preflight +
-# margin. $12 covers the 2-arm plan; bump to ~$18 if the 3rd (Sept) arm is enabled.
-SPEND_CAP_USD = float(os.environ.get("SPEND_CAP_USD", "12.0"))
+# Pre-registered main experiment (PREREGISTRATION.md): 3 arms × 10 runs ≈ $4.4 +
+# probes/preflight + TRACE REPLAY (~$2.5) + margin → $18 guard. (Pilot was $5.)
+SPEND_CAP_USD = float(os.environ.get("SPEND_CAP_USD", "18.0"))
 
 
 def proxy_base_url(provider: str, run_id: str, rnd: int) -> str:
