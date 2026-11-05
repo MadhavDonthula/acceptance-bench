@@ -314,21 +314,42 @@ def main():
         row("decode tok/s p50", "decode_p50", nd=1)
         row("cache hit rate", "cache_hit_rate", nd=1, pct=True, mul=100)
         row("total cost ($) — primary (public prices, w/ cache discount)", "total_cost", nd=4)
-        row("total cost ($) — NO cache discount [pending billing verification]",
+        row("total cost ($) — NO cache discount (worst-case upper bound)",
             "total_cost_no_cache_discount", nd=4)
-        row("cost per ACCEPTED ($) — NO cache discount [pending billing verification]",
+        row("cost per ACCEPTED ($) — NO cache discount (worst-case)",
             "cost_per_accepted_no_discount", nd=4)
         row("speculative acceptance", "spec_accept", nd=3)
         L.append("\n*time/cost per ACCEPTED = (sum of ALL that arm's runs' wall/cost) ÷ "
                  "(# accepted). '—' where nothing was accepted (division undefined — not zero).*\n")
         L.append("\n*Primary cost applies the public cached-read price to response `cached_tokens` "
-                 "(pre-registered). The NO-cache-discount row bills all input at the full input price; "
-                 "it is the honest upper bound for **Baseten**, whose billing usage API showed "
-                 "`cached_input_tokens=0` despite per-response `cached_tokens>0` (pending billing "
-                 "verification). Coral's billing was verified to match the discounted primary cost.*\n")
+                 "(pre-registered). BILLING VERIFIED (2026-11-04): Baseten's billing API daily "
+                 "subtotal matched the with-discount computation (and was far below the no-discount "
+                 "figure), and its usage API reports `cached_input_tokens>0` once aggregation settles "
+                 "— so Baseten DOES bill cached input at the discounted rate, like Coral. The "
+                 "NO-cache-discount row is retained only as a worst-case upper bound; it is NOT what "
+                 "either provider bills.*\n")
 
         L.append("\n## Amdahl check\n")
         L.append(amdahl_section(coral, baseten, by_run))
+
+        # Plain recorded observations (NOT claims — n=3)
+        def cmp(a, b, lower_better=True):
+            if a is None or b is None:
+                return "—"
+            win = "coral" if ((a < b) == lower_better) else "baseten"
+            return f"{win} (coral {a:.3g} vs baseten {b:.3g})"
+        L.append("\n## Recorded observations (n=3 per arm — descriptive only, NOT significant)\n")
+        L.append(f"- acceptance: coral {coral['accepted']}/3, baseten {baseten['accepted']}/3\n")
+        L.append(f"- faster to ACCEPTED (lower time/accepted): "
+                 f"{cmp(coral['time_per_accepted'], baseten['time_per_accepted'])}\n")
+        L.append(f"- cheaper per ACCEPTED (primary cost): "
+                 f"{cmp(coral['cost_per_accepted'], baseten['cost_per_accepted'])}\n")
+        L.append(f"- faster decode (tok/s, higher better): "
+                 f"{cmp(coral['decode_p50'], baseten['decode_p50'], lower_better=False)}\n")
+        L.append(f"- higher cache hit rate: "
+                 f"{cmp(coral['cache_hit_rate'], baseten['cache_hit_rate'], lower_better=False)}\n")
+        L.append("- These point in different directions, which is the whole point of separating "
+                 "'tokens/sec' from 'time & cost to ACCEPTED work'. Do not generalize from n=3.\n")
     else:
         L.append("_No runs recorded._\n")
 
@@ -358,6 +379,12 @@ def main():
             if isinstance(d, dict) and "cached_second" in d:
                 L.append(f"- {prov}: cached tokens 1st={d.get('cached_first')} "
                          f"2nd={d.get('cached_second')} (cache grew: {d.get('cache_grew')})\n")
+        L.append("\n> **Superseded:** the preflight cache probe above was header-naive and run on the "
+                 "old OpenCode 0.4.45 (no session/affinity header). It is NOT the cache story. The "
+                 "later investigation (DECISION_LOG) and the measured per-run cache hit rates above "
+                 "(Coral ~95%, Baseten ~51%) are authoritative: with OpenCode 1.19.5's "
+                 "`x-session-affinity` header, **Baseten does cache** — the earlier 0% was cold cache "
+                 "+ a missing session header, not an inability to cache.\n")
     else:
         L.append("_Preflight not run._\n")
 
@@ -378,9 +405,14 @@ def main():
         "undisclosed. Token-for-token quality may differ for reasons unrelated to speed.\n"
         "- **One task, one location.** Single task (payments idempotency), single machine/region. "
         "TTFT and rate limits are location-sensitive.\n"
-        "- **Public pricing, not account pricing.** Cost uses published list prices for BOTH arms "
-        "(see config/providers.toml + date). Coral may grandfather cheaper Fast pricing; that is "
-        "deliberately NOT used.\n"
+        "- **Public pricing (billing-verified).** Cost uses published list prices for BOTH arms "
+        "(config/providers.toml + date). Verified against provider billing: Coral's native per-call "
+        "cost equals the public-price computation (no grandfathering discrepancy on this account), "
+        "and Baseten's billing-API daily subtotal matched the with-cache-discount computation (so "
+        "both arms genuinely bill cached input at the discounted rate).\n"
+        "- **OpenCode 1.19.5 harness (upgraded from 0.4.45).** The upgrade is what lets Baseten "
+        "receive the `x-session-affinity` session header (fair cache treatment). Any smoke/cache "
+        "numbers recorded under 0.4.45 were invalidated and excluded.\n"
         "- **Proxy overhead** (~see above) is added to every call on both arms equally.\n"
         "- **Identical settings enforced by the proxy** (temp 0 / max_tokens 8192 / reasoning_effort "
         "high) injected identically on both arms; recorded per call in calls.jsonl.\n"

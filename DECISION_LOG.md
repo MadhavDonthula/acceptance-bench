@@ -596,3 +596,44 @@ history proves the order of decisions.
   per accepted (no discount) to analyze.py, computed by billing all input at the
   full input price. Primary cost stays public-price with the cached discount on
   response `cached_tokens` (pre-registered). Billing comparison to run post-pilot.
+
+---
+
+## 2026-11-04 (PILOT RUN + billing resolved)
+
+### Pilot executed (OpenCode 1.19.5, PWD fix, affinity header live)
+- **Observed:** 6 runs, interleaved order `[baseten, coral] × 3` (seed 20261103),
+  strictly sequential. **All 6 ACCEPTED** (coral 3/3, baseten 3/3). No 429/5xx/529.
+  Pilot spend $0.95 at public prices (total incl. investigation ≈ $1.17, well
+  under the $5 cap).
+- **Recorded observations (n=3, descriptive only):**
+  - time per ACCEPTED: **baseten 33.7s vs coral 48.2s** (baseten faster end-to-end).
+  - cost per ACCEPTED (primary, with cache discount): **coral $0.046 vs baseten
+    $0.199** (coral ~4× cheaper).
+  - decode tok/s p50: **baseten 2165 vs coral 817** (baseten decodes faster).
+  - cache hit rate: **coral 94.5% vs baseten 50.8%**.
+  - median rounds: coral 3, baseten 2.
+  - TTFT p50 ~0.32s both; baseten p95 higher (1.35s). Baseten speculative
+    acceptance 0.64.
+  - Amdahl: per-call speedup (coral/baseten decode) 0.38×; predicted end-to-end
+    0.47× vs observed 0.72× — non-model agent + judge time dilute the decode gap.
+- **Decision:** Report as-is. The pilot's value is the DECOMPOSITION: "tokens/sec"
+  (baseten wins) and "time-to-ACCEPTED" (baseten wins here) and "cost-to-ACCEPTED"
+  (coral wins, via ~95% cache) point in different directions — exactly what a
+  single wall-clock or a tokens/sec number would hide. NO statistical claims (n=3).
+- **Surprises:** Baseten's much faster decode did NOT make it cheaper — Coral's
+  ~95% cache hit vs Baseten's ~51% (plus lower unit prices) made Coral ~4× cheaper
+  per accepted result despite being slower. Coral also needed more review rounds.
+
+### Billing verification (resolved the earlier cached_input=0 worry)
+- **Observed:** After the pilot settled, Baseten usage API shows
+  `cached_input_tokens=1,116,160` for 1017-Fast today (NOT 0 — the earlier 0 was
+  aggregation lag). Billing API (`GET /v1/billing/model_apis`) daily subtotal
+  **$0.8503** matches the WITH-cache-discount computation (~$0.83 + GLM) and is far
+  below the no-discount figure (~$1.39+).
+- **Decision:** Baseten DOES bill cached input at the discounted rate, like Coral.
+  Primary (with-discount) public-price cost is the correct basis for both arms.
+  Kept the "no cache discount" row only as a labeled worst-case upper bound.
+  `harness/billing_check.py` records the comparison.
+- **Surprises:** The "Baseten billing ignores cache" hypothesis was also a lag
+  artifact — once aggregation settled, billing credited the cache.
