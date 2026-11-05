@@ -538,3 +538,61 @@ history proves the order of decisions.
 - Response `cached_tokens` and the billing usage API DISAGREE on Baseten (hits
   reported per-response, but cached_input=0 in billing) — the cache's cost benefit
   is unconfirmed even though its latency benefit is real.
+
+---
+
+## 2026-11-04 (CORRECTION + pre-pilot verification)
+
+### Correction to the earlier "Baseten never caches" finding
+- **Keep for the record:** the 2026-11-04 cache-investigation entry concluded
+  "NO caching even under affinity" for Baseten. **That conclusion was wrong.**
+- **Root cause:** (1) OpenCode **0.4.45 sent no session/affinity header at all**,
+  so Baseten could not pin requests to a replica; and (2) **cold cache /
+  first-sighting** — the probes hit replicas whose KV prefix wasn't warm.
+- **Correction (measured):** with OpenCode **1.19.5** (which sends
+  `x-session-affinity`/`x-session-id`) and warm replicas, Baseten caches on all
+  four tested slugs and reports `cached_tokens` in response usage, with TTFT
+  dropping on hits. The proxy was ruled out (direct == through-proxy).
+
+### Harness change: OpenCode upgrade invalidates earlier smoke results
+- **Observed/Decision:** Upgraded the pinned harness from **0.4.45 → 1.19.5**.
+  This is a behavior-changing harness swap: it adds session/affinity headers and
+  changes project-root resolution. **All smoke/cache results recorded under
+  0.4.45 are therefore invalidated** and must not be mixed with 1.19.5 data. Only
+  1.19.5 results feed the pilot.
+
+### Observation: 1017-Fast affinity cache pattern
+- With a stable `x-session-affinity` uuid, 3 identical ~20k requests to
+  `DeepSeek-V4.1-Flash-1017-Fast` returned cached_tokens **4352 / 17664 / 4352**
+  (and the OpenAI SDK run gave 17664 / 17664 / 4352). Caching is real but
+  **warmth/replica-dependent and variable** (occasional partial hits), unlike
+  Coral's eager, consistent content cache. Logged as a property to expect in the
+  pilot's Baseten cache-hit-rate variance.
+
+### Pre-pilot verification bug: OpenCode project root from $PWD
+- **Observed:** First 1.19.5 verification: every round rc=0 and the Write tool
+  reported success, but files landed in the REPO ROOT, not the per-run workspace
+  (`context_carried=False`, empty workspace). Root-caused from the transcript:
+  the agent wrote to an absolute `.../acceptance-bench/notes.txt`.
+- **Cause:** `subprocess.Popen(cwd=ws)` changes the child's working directory but
+  does NOT update the inherited `$PWD`; OpenCode 1.19.x resolves its project root
+  from `$PWD`, so it used the parent's repo instead of the workspace. (0.4.45 used
+  getcwd(), which is why this never showed before — another reason the upgrade
+  invalidates old results.)
+- **Fix:** `launcher.run_round` now sets `env["PWD"] = abspath(workspace)`. This
+  fixes BOTH the verification and the pilot (outer_loop uses the same launcher) —
+  caught here before any pilot run, which would otherwise have written all runs
+  into the repo root and judged empty workspaces.
+- **Result:** Re-ran verification — BOTH providers **PASS**: 3 same-session
+  `--continue` rounds, file grows alpha→beta→gamma inside the workspace, nothing
+  escapes to the repo root, all calls 200, affinity header forwarded, tool-call
+  streaming intact (edits land) on BOTH arms. Coral works unchanged with the new
+  session headers.
+- **Surprises:** The real blocker was never the model/permissions/tool-streaming
+  — it was a `$PWD`-vs-cwd mismatch introduced by the major OpenCode upgrade.
+
+### SUMMARY cost sensitivity row
+- Added a "cost — NO cache discount [pending billing verification]" row + cost
+  per accepted (no discount) to analyze.py, computed by billing all input at the
+  full input price. Primary cost stays public-price with the cached discount on
+  response `cached_tokens` (pre-registered). Billing comparison to run post-pilot.

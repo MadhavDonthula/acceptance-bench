@@ -138,13 +138,22 @@ def per_call_stats(calls, provider):
     }
 
 
-def provider_summary(by_run, calls, provider):
+def provider_summary(by_run, calls, provider, prices=None):
     runs = [m for m in by_run.values() if m["provider"] == provider]
     n = len(runs)
     accepted = [m for m in runs if m["outcome"] == "accepted"]
     walls = [m["wall"] for m in runs]
     total_wall = sum(walls)
     total_cost = sum(m["cost"] for m in runs)
+    # Sensitivity: cost if cached input got NO discount (billed as uncached).
+    # Relevant to Baseten, whose billing usage API showed cached_input=0 despite
+    # per-response cached_tokens>0 (pending billing verification).
+    total_cost_no_disc = None
+    if prices and provider in prices:
+        pr = prices[provider]
+        c = sum(((m["uncached"] + m["cached"]) * pr["input"] + m["output"] * pr["output"])
+                for m in runs) / 1_000_000.0
+        total_cost_no_disc = c
     cached = sum(m["cached"] for m in runs)
     inp = cached + sum(m["uncached"] for m in runs)
     pcs = per_call_stats(calls, provider)
@@ -156,7 +165,11 @@ def provider_summary(by_run, calls, provider):
         "cost_per_accepted": (total_cost / len(accepted)) if accepted else None,
         "rounds_median": _pct([m["rounds"] for m in runs], 50) if runs else None,
         "cache_hit_rate": (cached / inp) if inp else None,
-        "total_cost": total_cost, **pcs,
+        "total_cost": total_cost,
+        "total_cost_no_cache_discount": total_cost_no_disc,
+        "cost_per_accepted_no_discount": (total_cost_no_disc / len(accepted))
+            if (accepted and total_cost_no_disc is not None) else None,
+        **pcs,
     }
 
 
@@ -224,6 +237,14 @@ def main():
     overhead = _load_json(os.path.join(RAW, "proxy_overhead.json"))
     preflight = _load_json(os.path.join(PREFLIGHT, "report.json"))
 
+    try:
+        from proxy.config import load_providers
+        prices = {name: {"input": p.price_input, "output": p.price_output,
+                         "cached": p.price_cached_read}
+                  for name, p in load_providers().items()}
+    except Exception:
+        prices = {}
+
     pilot_calls = [c for c in calls if str(c.get("run_id", "")).startswith("run")]
     by_run = build_run_metrics(runs, rounds, pilot_calls)
     chart = make_chart(by_run)
@@ -270,8 +291,8 @@ def main():
     # Per-provider summary
     L.append("\n## Per-provider pilot summary\n")
     if by_run:
-        coral = provider_summary(by_run, pilot_calls, "coral")
-        baseten = provider_summary(by_run, pilot_calls, "baseten")
+        coral = provider_summary(by_run, pilot_calls, "coral", prices)
+        baseten = provider_summary(by_run, pilot_calls, "baseten", prices)
         L.append("| metric | coral | baseten |\n|---|---|---|\n")
         def row(label, key, nd=2, pct=False, mul=1):
             cv, bv = coral.get(key), baseten.get(key)
@@ -292,10 +313,19 @@ def main():
         row("TTFT p95 (s)", "ttft_p95", nd=3)
         row("decode tok/s p50", "decode_p50", nd=1)
         row("cache hit rate", "cache_hit_rate", nd=1, pct=True, mul=100)
-        row("total cost ($)", "total_cost", nd=4)
+        row("total cost ($) — primary (public prices, w/ cache discount)", "total_cost", nd=4)
+        row("total cost ($) — NO cache discount [pending billing verification]",
+            "total_cost_no_cache_discount", nd=4)
+        row("cost per ACCEPTED ($) — NO cache discount [pending billing verification]",
+            "cost_per_accepted_no_discount", nd=4)
         row("speculative acceptance", "spec_accept", nd=3)
         L.append("\n*time/cost per ACCEPTED = (sum of ALL that arm's runs' wall/cost) ÷ "
                  "(# accepted). '—' where nothing was accepted (division undefined — not zero).*\n")
+        L.append("\n*Primary cost applies the public cached-read price to response `cached_tokens` "
+                 "(pre-registered). The NO-cache-discount row bills all input at the full input price; "
+                 "it is the honest upper bound for **Baseten**, whose billing usage API showed "
+                 "`cached_input_tokens=0` despite per-response `cached_tokens>0` (pending billing "
+                 "verification). Coral's billing was verified to match the discounted primary cost.*\n")
 
         L.append("\n## Amdahl check\n")
         L.append(amdahl_section(coral, baseten, by_run))

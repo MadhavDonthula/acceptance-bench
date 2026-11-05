@@ -49,6 +49,9 @@ def run_round(
         "OPENCODE_CONFIG": config_path,
         "OPENCODE_DISABLE_AUTOUPDATE": "1",
         "PATH": os.path.join(ROOT, "node_modules", ".bin") + os.pathsep + os.environ.get("PATH", ""),
+        # Popen(cwd=...) does NOT update $PWD, but OpenCode 1.19.x resolves its
+        # project root from $PWD. Without this it escapes to the parent's git repo.
+        "PWD": os.path.abspath(workspace),
     }
     cmd = [OPENCODE_BIN, "run"]
     if continue_session:
