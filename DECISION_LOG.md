@@ -406,3 +406,64 @@ history proves the order of decisions.
 ### Spend
 - Preflight total so far ~\$0.05 at public prices (2 preflight passes). Well under
   the \$5 cap.
+
+---
+
+## 2026-11-04 (cache investigation) — resolving Baseten cached=0
+
+### Observed
+- **OpenCode header provenance (Part A, proxy now records header NAMES + non-auth
+  session-header values):** OpenCode 0.4.45 sends only `accept`, `accept-encoding`,
+  `authorization`, `connection`, `content-length`, `content-type`, `host`,
+  `user-agent`. **There is NO session / affinity / conversation header at all**
+  (`session_headers = {}`) on either arm. The proxy forwards everything except its
+  documented drop list (`authorization` reset from .env, plus hop-by-hop
+  `host`/`content-length`/`connection`) — confirmed unchanged forwarding; there
+  was simply no session header to preserve.
+- **In-session caching (OpenCode smoke):** Coral's 2nd call cached **9984** tokens;
+  Baseten's 2nd call cached **0** — Baseten cached nothing even within one agent
+  session.
+- **Affinity probe (Part B, stable `x-session-affinity: <uuid>` on all calls):**
+  - Coral — 5k: cached `[0, 4352, 4352]`; 20k: `[4352, 17664, 17664]` → caches.
+  - Baseten — 5k: `[0, 0, 0]`; 20k: `[0, 0, 0]` → **zero caching even with identical
+    bodies AND a fixed affinity uuid**.
+- **Cost cross-check (Coral native vs our computed public):** over 17 Coral calls,
+  native billed `$0.02188758` vs computed public `$0.02188755` → rel diff
+  **0.0001%** (floating-point noise). Coral is billed at EXACTLY public Fast
+  prices here. Baseten returns no native `cost` field (0/17 calls).
+
+### Options
+- Treat Baseten's zero-cache as a harness artifact vs accept it as measured reality.
+- Switch headline cost to native billed vs keep public list prices.
+
+### Decision
+- The pre-registered premise ("Baseten uses session IDs that OpenCode sends for
+  cache affinity; stripping headers would bias results") is **empirically false
+  for this harness**: OpenCode sends no session header, and Baseten does not cache
+  even under an explicit `x-session-affinity` uuid with byte-identical bodies. Keep
+  forwarding all headers unchanged (still correct and harmless), but it is NOT
+  cache-critical here. Baseten's ~0% cache hit rate is a REAL property of this
+  slug/account via the public OpenAI-compatible endpoint, not a harness artifact.
+- Keep headline cost at PUBLIC list prices (pre-registered). Also persist
+  `provider_native_cost_usd` per call (Coral reports it; equals public, so NO
+  grandfathering on this account — record that fact). Baseten reports no native
+  cost, so public-price is the only basis there.
+
+### Effect on next step
+- Pilot will show Coral with a high measured cache hit rate and Baseten ~0%; this
+  is exactly the cost-story difference the benchmark was built to quantify, and
+  `analyze.py` already reports measured per-provider hit rates + Baseten
+  speculative acceptance. Proxy now records `request_header_names`,
+  `forwarded_header_names`, `session_headers`, and `provider_native_cost_usd` for
+  the pilot too. No settings change needed before the pilot.
+
+### Surprises
+- OpenCode sends ZERO session headers — the entire cache-affinity-header concern
+  is moot for this harness.
+- Baseten returned cached=0 under identical bodies + fixed affinity uuid — no
+  prompt caching observed for `...-1017-Fast` on this account/endpoint. (Caveat:
+  Baseten caching may require separate enablement; what we can claim is "not
+  observed here, with or without affinity.")
+- Coral's account is billed at exactly PUBLIC list prices — contrary to the
+  pre-registered worry that it might be grandfathered cheaper. Public-price
+  headline is therefore faithful to Coral's actual billing in this account.

@@ -175,6 +175,16 @@ async def proxy_endpoint(request: Request):
     if request.url.query:
         url += f"?{request.url.query}"
 
+    # Header provenance (names only; values ONLY for non-auth session headers, so
+    # we can confirm cache-affinity behavior without ever logging a secret).
+    incoming_names = sorted({k.lower() for k in request.headers.keys()})
+    forwarded_names = sorted({k.lower() for k in fwd_headers.keys()})
+    _SESSION_HINTS = ("session", "affinity", "x-request-id", "x-conversation")
+    session_headers = {
+        k.lower(): v for k, v in request.headers.items()
+        if any(h in k.lower() for h in _SESSION_HINTS) and k.lower() != "authorization"
+    }
+
     rec = {
         "run_id": run_id,
         "round": rnd,
@@ -185,6 +195,9 @@ async def proxy_endpoint(request: Request):
         "request_params": recorded_params,
         "message_count": msg_count,
         "request_bytes": len(new_body),
+        "request_header_names": incoming_names,
+        "forwarded_header_names": forwarded_names,
+        "session_headers": session_headers,
         "wall_request_start": _now_wall(),
     }
 
@@ -296,6 +309,9 @@ async def _finalize(rec, state, status, rate_headers, provider, t_start, resp_ct
     usage_raw = state["usage_raw"]
     usage = parse_usage(usage_raw)
     cost = provider.cost(usage.uncached_tokens, usage.cached_tokens, usage.output_tokens)
+    # Provider's own reported cost, if any (Coral returns `cost`), so we can
+    # cross-check our public-price computation against the account's billed cost.
+    native_cost = usage_raw.get("cost") if isinstance(usage_raw, dict) else None
 
     end = time.monotonic()
     rec.update({
@@ -324,6 +340,7 @@ async def _finalize(rec, state, status, rate_headers, provider, t_start, resp_ct
         "reasoning_tokens": usage.reasoning_tokens,
         "prediction_tokens": _prediction_tokens(usage_raw),
         "cost_usd_public": cost,
+        "provider_native_cost_usd": native_cost,
     })
     await _write_record(rec)
 
