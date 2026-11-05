@@ -11,7 +11,7 @@
 PY := uv run python
 UV := uv
 
-.PHONY: setup verify-task overhead preflight pilot analyze clean
+.PHONY: setup verify-task check4-sensitivity overhead preflight pilot analyze clean
 
 setup:
 	$(UV) venv --python 3.12
@@ -22,6 +22,9 @@ setup:
 
 verify-task:
 	$(PY) -m judge.verify_task
+
+check4-sensitivity:
+	$(PY) -m judge.check4_sensitivity 50
 
 overhead:
 	$(PY) -m proxy.overhead

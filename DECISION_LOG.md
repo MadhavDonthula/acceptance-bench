@@ -330,3 +330,24 @@ history proves the order of decisions.
 - **Surprises:** mutant5 also trips check 6 (its shared keyless key causes a 409
   on the differing-body charges the list test creates) — harmless, since check 5
   has higher priority so the judge still reports exactly check 5.
+
+---
+
+## 2026-11-04 (hardening) — Task 2: check-4 sensitivity
+
+- **Observed:** Check 4 (concurrency) is the only inherently nondeterministic
+  check. Measured its sensitivity with `judge/check4_sensitivity.py` — 50 runs
+  of ONLY check 4 against mutant4 (non-atomic, no lock, no unique constraint) and
+  50 against the reference.
+- **Result:**
+  - mutant4: check 4 CAUGHT the race **50/50 = 100%** (never missed).
+  - reference: check 4 PASSED **50/50** — no flakiness.
+- **Decision:** Catch rate (100%) already exceeds the ~95% bar and the reference
+  is flake-free, so NO strengthening was needed. Current check 4 (10 threads
+  released together via a `threading.Barrier`, assert exactly one charge id) is
+  sufficient. Kept the knobs documented in the spec (more threads / repeated
+  bursts / monkeypatched delay) in reserve if a future environment proves less
+  contended. Added `make check4-sensitivity`.
+- **Surprises:** The non-atomic mutant never once sneaked past — on this machine
+  the SELECT→INSERT window under 10 barrier-released threads is wide enough that
+  duplicates occur every time.
