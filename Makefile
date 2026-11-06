@@ -11,7 +11,7 @@
 PY := uv run python
 UV := uv
 
-.PHONY: setup verify-task check4-sensitivity overhead preflight pilot analyze clean
+.PHONY: setup verify-task check4-sensitivity overhead preflight pilot analyze clean site
 
 setup:
 	$(UV) venv --python 3.12
@@ -40,3 +40,6 @@ analyze:
 
 clean:
 	rm -rf runs results/raw/*.jsonl results/charts/*
+
+site:
+	$(PY) -m harness.build_site

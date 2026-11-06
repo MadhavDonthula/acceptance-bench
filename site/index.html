@@ -1,0 +1,161 @@
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Accepted-work benchmark — CoralBricks vs Baseten</title>
+<style>
+:root{--bg:#0f1115;--panel:#171a21;--line:#262b36;--txt:#e7ebf2;--mut:#93a0b5;--acc:#e8663b}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.55 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+.wrap{max-width:980px;margin:0 auto;padding:40px 22px 80px}
+h1{font-size:30px;margin:0 0 6px} h2{font-size:19px;margin:38px 0 12px;border-bottom:1px solid var(--line);padding-bottom:7px}
+.sub{color:var(--mut);margin:0 0 4px}
+.banner{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--acc);border-radius:10px;padding:14px 18px;margin:18px 0 8px}
+.verdict{font-size:16px} .verdict b{color:#fff}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:18px 0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+.card .arm{font-weight:600;font-size:13px;color:var(--mut);min-height:34px}
+.card .big{font-size:26px;font-weight:700;margin-top:8px}
+.card .lbl{font-size:11.5px;color:var(--mut);margin-bottom:4px}
+.card .mini{font-size:11.5px;color:var(--mut);margin-top:10px;border-top:1px solid var(--line);padding-top:8px}
+table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+th,td{text-align:left;padding:11px 13px;border-bottom:1px solid var(--line);font-size:13.5px;vertical-align:top}
+th{color:var(--mut);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.03em}
+tr:last-child td{border-bottom:none}
+.muted{color:var(--mut);font-size:11px;margin:1px 0 4px}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px}
+.track{background:#0d0f13;border-radius:5px;overflow:hidden;margin-top:3px}
+.fill{border-radius:5px}
+.diffs{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.diff{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;font-size:13.5px}
+.diff b{display:block;margin-bottom:8px} .diff div{margin:5px 0;color:var(--mut)}
+code{background:#0d0f13;padding:2px 6px;border-radius:5px;color:var(--txt);font-size:12.5px}
+.rob{color:#5fd08a;font-weight:600;font-size:11.5px} .norob{color:var(--mut);font-size:11.5px}
+ul{color:var(--mut);font-size:13.5px} li{margin:5px 0}
+.foot{color:var(--mut);font-size:12px;margin-top:40px;border-top:1px solid var(--line);padding-top:14px}
+.pill{display:inline-block;background:#0d0f13;border:1px solid var(--line);border-radius:20px;padding:3px 11px;font-size:12px;color:var(--mut);margin:2px 4px 2px 0}
+</style></head><body><div class="wrap">
+
+<h1>Does fast inference reach <span style="color:var(--acc)">ACCEPTED</span> work faster?</h1>
+<p class="sub">A pre-registered benchmark: same model, same harness (OpenCode 1.19.5), same task, same settings — only the inference provider changes. Acceptance = all 7 hidden tests pass.</p>
+<div>
+  <span class="pill">n=10 runs / arm</span><span class="pill">3 arms, interleaved</span>
+  <span class="pill">deterministic judge</span><span class="pill">paired bootstrap 95% CIs</span>
+  <span class="pill">cost at public list prices (billing-verified)</span>
+</div>
+
+<div class="banner"><div class="verdict">
+<b>Baseten reaches accepted ~11s faster</b> and decodes
+~1.66× faster — but
+<b>CoralBricks is ~3.6× cheaper per accepted result</b>, driven by a 96% cache hit rate.
+Token throughput and <i>time/cost to accepted work</i> point in opposite directions — which a single tokens/sec number would hide.
+</div></div>
+
+<div class="cards">
+        <div class="card" style="border-top:4px solid #e8663b">
+          <div class="arm">CoralBricks Fast</div>
+          <div class="big">41.3s</div>
+          <div class="lbl">time / accepted &nbsp;·&nbsp; 95% CI 38.6 – 44.5s</div>
+          <div class="big">$0.0440</div>
+          <div class="lbl">cost / accepted &nbsp;·&nbsp; 95% CI $0.0396 – $0.0491</div>
+          <div class="mini">accepted 10/10 · cache 95.9% · median rounds 2.5</div>
+        </div>
+        <div class="card" style="border-top:4px solid #3b7dd8">
+          <div class="arm">Baseten V4.1-Flash-1017-Fast</div>
+          <div class="big">30.5s</div>
+          <div class="lbl">time / accepted &nbsp;·&nbsp; 95% CI 28.2 – 33.3s</div>
+          <div class="big">$0.1592</div>
+          <div class="lbl">cost / accepted &nbsp;·&nbsp; 95% CI $0.1347 – $0.1882</div>
+          <div class="mini">accepted 10/10 · cache 72.3% · median rounds 2.0</div>
+        </div>
+        <div class="card" style="border-top:4px solid #6aa9f0">
+          <div class="arm">Baseten V4.1-Flash-Fast (Sept)</div>
+          <div class="big">29.6s</div>
+          <div class="lbl">time / accepted &nbsp;·&nbsp; 95% CI 26.2 – 32.9s</div>
+          <div class="big">$0.1480</div>
+          <div class="lbl">cost / accepted &nbsp;·&nbsp; 95% CI $0.1300 – $0.1700</div>
+          <div class="mini">accepted 10/10 · cache 70.6% · median rounds 2.0</div>
+        </div></div>
+
+<h2>Per-provider results <span class="sub" style="font-weight:400">(main experiment, n=10/arm)</span></h2>
+<table><thead><tr><th>Provider</th><th>Time / accepted</th><th>Cost / accepted</th><th>Cache hit</th><th>Decode (probe)</th><th>Accepted</th></tr></thead>
+<tbody><tr>
+          <td><span class="dot" style="background:#e8663b"></span>CoralBricks Fast</td>
+          <td>41.3s<div class="muted">38.6 – 44.5</div><div class="track"><div class="fill" style="width:100.0%;background:#e8663b;height:10px"></div></div></td>
+          <td>$0.0440<div class="muted">$0.0396 – $0.0491</div><div class="track"><div class="fill" style="width:27.6%;background:#e8663b;height:10px"></div></div></td>
+          <td>95.9%<div class="track"><div class="fill" style="width:95.9%;background:#e8663b;height:10px"></div></div></td>
+          <td>389 tok/s</td>
+          <td>10/10</td>
+        </tr><tr>
+          <td><span class="dot" style="background:#3b7dd8"></span>Baseten V4.1-Flash-1017-Fast</td>
+          <td>30.5s<div class="muted">28.2 – 33.3</div><div class="track"><div class="fill" style="width:73.8%;background:#3b7dd8;height:10px"></div></div></td>
+          <td>$0.1592<div class="muted">$0.1347 – $0.1882</div><div class="track"><div class="fill" style="width:100.0%;background:#3b7dd8;height:10px"></div></div></td>
+          <td>72.3%<div class="track"><div class="fill" style="width:72.3%;background:#3b7dd8;height:10px"></div></div></td>
+          <td>646 tok/s</td>
+          <td>10/10</td>
+        </tr><tr>
+          <td><span class="dot" style="background:#6aa9f0"></span>Baseten V4.1-Flash-Fast (Sept)</td>
+          <td>29.6s<div class="muted">26.2 – 32.9</div><div class="track"><div class="fill" style="width:71.6%;background:#6aa9f0;height:10px"></div></div></td>
+          <td>$0.1480<div class="muted">$0.1300 – $0.1700</div><div class="track"><div class="fill" style="width:93.0%;background:#6aa9f0;height:10px"></div></div></td>
+          <td>70.6%<div class="track"><div class="fill" style="width:70.6%;background:#6aa9f0;height:10px"></div></div></td>
+          <td>—</td>
+          <td>10/10</td>
+        </tr></tbody></table>
+<p class="sub" style="font-size:12px">Bars are relative within each column. Sub-values are paired-bootstrap 95% CIs. Decode is the controlled long-generation probe (reasoning off); per-call pilot decode is unreliable and excluded.</p>
+
+<h2>Paired differences <span class="sub" style="font-weight:400">(CI excluding 0 ⇒ robust direction at this n)</span></h2>
+<div class="diffs"><div class="diff">
+          <b>CoralBricks Fast − Baseten V4.1-Flash-1017-Fast</b>
+          <div>Δ time/accepted: <code>8.4 – 13.5 s</code> <span class="rob">CI excludes 0</span></div>
+          <div>Δ cost/accepted: <code>$-0.1445 – $-0.0892</code> <span class="rob">CI excludes 0</span></div>
+        </div><div class="diff">
+          <b>Baseten V4.1-Flash-1017-Fast − Baseten V4.1-Flash-Fast (Sept)</b>
+          <div>Δ time/accepted: <code>-2.7 – 4.0 s</code> <span class="norob">CI includes 0</span></div>
+          <div>Δ cost/accepted: <code>$-0.0202 – $0.0408</code> <span class="norob">CI includes 0</span></div>
+        </div></div>
+<p class="sub" style="font-size:12px">A−B isolates the serving-stack/model gap; B−C isolates the Baseten snapshot. B−C CIs include 0 → the snapshot is not the driver.</p>
+
+<h2>Trace replay <span class="sub" style="font-weight:400">(identical request sequences — inference isolated from agent behavior)</span></h2>
+<table><thead><tr><th>Provider</th><th>Model time / session</th><th>TTFT (content)</th><th>Cache hit</th><th>Cost / session</th></tr></thead>
+<tbody><tr>
+          <td><span class="dot" style="background:#e8663b"></span>CoralBricks Fast</td>
+          <td>39.2s</td>
+          <td>0.953s</td>
+          <td>99.5%</td>
+          <td>$0.0289</td>
+        </tr><tr>
+          <td><span class="dot" style="background:#3b7dd8"></span>Baseten V4.1-Flash-1017-Fast</td>
+          <td>26.1s</td>
+          <td>0.473s</td>
+          <td>68.5%</td>
+          <td>$0.1953</td>
+        </tr><tr>
+          <td><span class="dot" style="background:#6aa9f0"></span>Baseten V4.1-Flash-Fast (Sept)</td>
+          <td>23.4s</td>
+          <td>0.440s</td>
+          <td>77.7%</td>
+          <td>$0.1477</td>
+        </tr></tbody></table>
+<p class="sub" style="font-size:12px">Same 6 captured sessions replayed against every arm with original inter-call gaps and a fresh affinity id. With agent behavior held fixed, the speed/cost tradeoff persists — it is inference-level, not just "Coral reasons more."</p>
+
+<h2>Why the cost gap?</h2>
+<ul>
+<li><b>65%</b> of the cost gap is <b>token / cache behavior</b> (Baseten bills far more uncached input — lower cache hit).</li>
+<li><b>35%</b> is <b>unit price</b>. Even priced at Coral's rates, Baseten's tokens cost more.</li>
+</ul>
+
+<h2>How it's measured</h2>
+<ul>
+<li>Every request flows through a local recording proxy (added overhead: <b>2.23 ms</b>/call, both arms).</li>
+<li>Identical settings injected on both arms: temperature 0, max_tokens 8192, reasoning_effort high.</li>
+<li>Deterministic judge: 7 prioritized hidden tests, acceptance = all pass; mutation-tested.</li>
+<li>Cost at public list prices with cache discount (verified against provider billing).</li>
+</ul>
+
+<h2>Limitations</h2>
+<ul>
+<li>One task (payments idempotency), one machine/region — CIs quantify run-to-run variance, not external validity.</li>
+<li>Snapshot identity: Coral serves an opaque snapshot; running both Baseten snapshots (B,C) showed no robust snapshot difference, but Coral-vs-Baseten weights identity is unconfirmed.</li>
+<li>Coral documents FP4 serving; Baseten precision undisclosed — token-for-token quality may differ.</li>
+</ul>
+
+<div class="foot">Generated from <code>results/raw/</code> by <code>harness/build_site.py</code>. Every number traces to recorded data. Pre-registration committed before any main run (PREREGISTRATION.md). Pilot + diagnostics + decision history in DECISION_LOG.md.</div>
+</div></body></html>
