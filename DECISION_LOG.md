@@ -872,3 +872,31 @@ history proves the order of decisions.
   ~/code/acceptance-bench/.env via proxy.config.load_dotenv (never copied
   elsewhere). coral-probe timing logic is ported into acceptance-bench rather than
   importing the external repo.
+
+### Layer A executed (committed 569a49e)
+- **Result (recorded data, 904 windowed main-run 200-calls):**
+  - Miss penalty (joint TTFT regression): **~25 ms per 1k uncached** (Coral) vs
+    **~9 ms/1k** (Baseten 1017 / Sept). **Cached slope ≈ 0** on all three arms
+    (Coral slightly negative) → cache hits are essentially free in TTFT. CIs
+    bootstrap over calls.
+  - Coral network baseline (CORAL ONLY, 20× GET /v1/models): median RTT ~115 ms;
+    Coral TTFT p50 270 ms → ~155 ms server-side after RTT. Baseten net-adjusted
+    = UNMEASURED by choice.
+  - Miss rate (cacheable calls): Coral **12.5%** vs Baseten **~58%**, both
+    **eviction-dominated** (partial-tail) not routing (near-total) misses.
+- **Selection caveat logged:** the proxy only timestamps content/reasoning
+  deltas, so Coral's 126 tool-call-only completions (of 319) have no TTFT and are
+  excluded from its regression; Baseten has 0 such. §3/§4 use all 200-calls.
+
+### Layer B PRE-REGISTERED (PREREGISTRATION_CACHE.md committed before any call)
+- **Decision:** Route Layer B through the recording proxy (honors "same proxy +
+  cost accounting") with `PROXY_INJECT_PARAMS=0` and `max_tokens=16` /
+  `reasoning_effort=none` (we measure prefill/caching, not generation, to protect
+  the $2.50 budget). The client sends a dummy key; the proxy injects the real
+  Coral key from `.env`, so the experiment client never reads the secret.
+- **Bounding:** dedicated `cacheexp-*` run_ids (excluded from main + Layer C);
+  hard $2.50 stop + 429/5xx stop + measurement-bug stop (immediate resend must
+  show high cached fraction, per the main experiment's ~96%). Test 1's idle
+  windows run in isolation (no other sends) so shared-replica eviction can't
+  confound cache-survival. No human-paced loop (deferred to SERIES_NOTES.md).
+- **Effect on next step:** run harness/cache_subexperiment.py in the background.
