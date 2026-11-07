@@ -972,3 +972,22 @@ history proves the order of decisions.
 - **Consistency with main experiment:** cache hits are cheap in latency (hit TTFT
   ≪ miss TTFT) and durable — consistent with the main experiment's finding that
   Coral's cost/latency edge is a cache story. No contradiction → no stop.
+
+### FINAL synthesis + future episodes
+- **Wrote `results/CACHE_REPORT_SHORT.md`:** miss-penalty slopes, Coral
+  network-adjusted TTFT (Baseten UNMEASURED by choice), review-delay survival
+  curve, warm/cold fan-out, branch/rollback, prefix-bust, billing headline, and a
+  plain-English verdict — **caching helps the acceptance loop on latency, not just
+  cost** (hit TTFT ≪ miss TTFT, durable across a 30-min pause, branch- and
+  fan-out-friendly; fragile only to early prompt-head edits and to Coral's steep
+  per-token miss penalty). Every number traces to a recorded Layer A/B/C file;
+  unmeasured items are labeled.
+- **`SERIES_NOTES.md`:** deferred the **human-paced acceptance loop** to a future
+  episode (would exceed the $2.50 unattended budget), plus the Baseten
+  network/active-cache comparison (blocked by the Coral-only rule) and fan-out
+  beyond the 5-in-flight cap.
+- **Integrity check:** the 95 `cacheexp-*` calls the proxy appended to the
+  gitignored `calls.jsonl` are excluded from main windowing by run_id — the main
+  experiment still resolves to exactly its 904 windowed calls. SUMMARY.md,
+  PREREGISTRATION.md, and the main results were NOT modified; only new files were
+  written. No Baseten API call was made in any layer of this extension.
