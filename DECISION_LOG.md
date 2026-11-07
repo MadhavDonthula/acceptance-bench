@@ -991,3 +991,16 @@ history proves the order of decisions.
   experiment still resolves to exactly its 904 windowed calls. SUMMARY.md,
   PREREGISTRATION.md, and the main results were NOT modified; only new files were
   written. No Baseten API call was made in any layer of this extension.
+
+### Detailed report + local web page (operator request)
+- **`harness/build_cache_report.py`** reads the recorded Layer-A/B/C JSON (no
+  hardcoded metrics) and emits BOTH an exhaustive consolidated markdown
+  **`results/CACHE_FULL_REPORT.md`** (11 sections: methodology, all Layer-A
+  regression tables + CIs, network baseline, hit curves, miss anatomy, all six
+  Layer-B tests with full per-rep data, full Layer-C per-bucket billing,
+  verdict, reproduction/manifest) and a self-contained **`site/caching.html`**
+  (the 4 charts embedded as base64 so it serves/opens from anywhere; nav link to
+  the existing `site/index.html`).
+- **Served locally:** `python -m http.server 8000 --directory site` →
+  http://localhost:8000/caching.html (verified HTTP 200). Still Coral-only /
+  recorded-data-only; no Baseten calls; main results untouched.
