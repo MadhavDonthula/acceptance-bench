@@ -900,3 +900,44 @@ history proves the order of decisions.
   windows run in isolation (no other sends) so shared-replica eviction can't
   confound cache-survival. No human-paced loop (deferred to SERIES_NOTES.md).
 - **Effect on next step:** run harness/cache_subexperiment.py in the background.
+
+### Layer B smoke → Coral account caps in-flight at 5 (logged deviation)
+- **Observed (smoke, a few Coral calls):** proxy path + SSE parse + cost
+  accounting + generator all work; calibration 3.29 chars/token; immediate
+  identical resend of a fresh 30k prompt cached **79%** (sanity threshold 0.5
+  passed — the cache path behaves; the main experiment's ~96% is over many warm
+  calls). BUT an 8-way warm fan-out returned **HTTP 429**: "this account may have
+  5 in flight at once." So the Coral account has a **hard 5-concurrent cap**.
+- **Decision:** (1) add a global `BoundedSemaphore(5)` around every send so
+  parallel sections (test 1's 15-session prime burst, fan-out) never exceed the
+  cap and never self-429; (2) add 429/5xx retry-with-backoff in `send()` so a
+  transient contention retries instead of counting toward the 3-in-a-row error
+  stop; (3) reduce fan-out width from the pre-registered **8 → 5** (the account
+  max). This is a **logged deviation** from PREREGISTRATION_CACHE.md, forced by
+  the account limit; lifting it would need account credit (out of scope, and would
+  still be Coral-only). 5-concurrent still answers the warm/cold prefill-sharing
+  question. All other Layer B parameters are as pre-registered.
+- **Effect:** launch the full run in the background (~30 min wall; test 1 idles
+  1800s). Budget + stop rules unchanged.
+
+### Layer C executed (billing reconciliation, NO API calls)
+- **Method:** dedup all proxy-recorded calls across the live `calls.jsonl` + 3
+  archived snapshots by (provider, timestamp, run_id, round, call_index) so each
+  physical call counts once; exclude `cacheexp-*` (this caching work, which is
+  AFTER the dashboard snapshot); bucket run-id'd calls by the main-experiment wall
+  window into pilot/pre-main vs main vs stale, and non-run-id'd calls into
+  probes/preflight. Replays bypassed the proxy → summed from `trace_replay.jsonl`.
+- **Result (recorded total vs dashboard):**
+  - **Baseten 1017-Fast: $4.89 vs $4.95 (99%)**, remainder $0.06.
+  - **Baseten Sept-Fast: $3.44 vs $3.48 (99%)**, remainder $0.04.
+  - **Coral: $1.00 vs $1.25 (80%)**, remainder $0.25 — dominated by **5.35M
+    unexplained cached tokens**, consistent with prior `coral-probe` use of the
+    SAME Coral account plus non-replay direct probes (not through the proxy).
+- **Decision:** report the remainder as-is (not forced to zero); attribute to
+  direct-probe calls that bypassed the proxy, prior same-account usage (Coral),
+  dashboard token-counting semantics (cache-write/aborted), and aggregation lag.
+  The Baseten arms reconcile to 99%, a strong check that the proxy's per-call
+  cost/token accounting matches the provider's billing.
+- **Surprise:** the Baseten reconciliation is tight (99%) because almost all
+  Baseten traffic went through our harness; Coral's looser 80% is explained by the
+  shared account's earlier life, not by a measurement error.
