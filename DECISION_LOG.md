@@ -941,3 +941,34 @@ history proves the order of decisions.
 - **Surprise:** the Baseten reconciliation is tight (99%) because almost all
   Baseten traffic went through our harness; Coral's looser 80% is explained by the
   shared account's earlier life, not by a measurement error.
+
+### Layer B EXECUTED (Coral-only; $1.02 / $2.50; 84 calls; no stop triggered)
+- **Test 1 — review delay (cache survival):** mean cached fraction on re-send is
+  **84–99% across ALL idle gaps 10s→1800s** with no downward trend (900s even
+  99%). **Coral's prefix cache survives ≥30 min idle** — a human review pause does
+  not cost a re-prefill. (Chart: cache_review_delay.png.)
+- **Test 2 — context growth:** miss TTFT scales with size (0.74 / 2.03 / 4.62 s at
+  ~20k / 100k / 300k) while hit TTFT stays low (0.30 / 0.45 / 0.91 s); hit cached
+  fraction 81 / 97 / 100%. **300k context works** (no context-limit error) and the
+  cache's latency win GROWS with context size.
+- **Test 3 — warm fan-out:** 5 concurrent on a primed prefix → **95% mean hit
+  rate**, tight TTFT (0.29–0.83 s). A warmed prefix absorbs concurrent fan-out.
+- **Test 4 — cold fan-out:** 5 concurrent identical on a NEW prefix → **3/5 shared
+  a prefill** (cached 82–97%), 2 missed. Concurrent cold requests partially
+  in-flight-dedup (first to prefill warms the rest), not all-independent.
+- **Test 5 — branch/rollback:** 10-turn convo, branch from turn 5 → branch cached
+  **15,104 / 18,305** tokens ≈ the shared 5-turn prefix (15,243). **The cache keeps
+  the common ancestor when a conversation branches** — rollback re-prefills only the
+  divergent tail.
+- **Test 6 — prefix-bust:** cached tokens are **exactly 256-aligned**, clustering
+  at multiples of **8192** (=32×256): bust@10% → 0, @50% → 8192, @90% → ~24576. So
+  cached is NOT proportional to bust position; an **early edit re-prefills far more
+  than its position implies** and the cache retains whole 256-aligned blocks before
+  the first changed token. (Chart: cache_prefix_bust.png.)
+- **Deviation (logged):** Coral account caps in-flight at 5 → fan-out width 5 (not
+  pre-registered 8); global semaphore + 429-retry kept us under the cap with no
+  stop-rule trip. Sanity immediate-resend cached 79% (> 0.5 threshold; main
+  experiment's ~96% is a many-warm-call average), so no measurement-bug stop.
+- **Consistency with main experiment:** cache hits are cheap in latency (hit TTFT
+  ≪ miss TTFT) and durable — consistent with the main experiment's finding that
+  Coral's cost/latency edge is a cache story. No contradiction → no stop.
