@@ -1,0 +1,134 @@
+{
+  "opencode_headers": {
+    "coral": {
+      "n_calls": 1,
+      "request_header_names": [
+        "accept",
+        "accept-encoding",
+        "authorization",
+        "connection",
+        "content-length",
+        "content-type",
+        "host",
+        "user-agent"
+      ],
+      "forwarded_header_names": [
+        "accept",
+        "accept-encoding",
+        "authorization",
+        "content-type",
+        "user-agent"
+      ],
+      "session_headers": {},
+      "cached_per_call": [
+        0
+      ],
+      "uncached_per_call": [
+        10020
+      ]
+    },
+    "baseten": {
+      "n_calls": 1,
+      "request_header_names": [
+        "accept",
+        "accept-encoding",
+        "authorization",
+        "connection",
+        "content-length",
+        "content-type",
+        "host",
+        "user-agent"
+      ],
+      "forwarded_header_names": [
+        "accept",
+        "accept-encoding",
+        "authorization",
+        "content-type",
+        "user-agent"
+      ],
+      "session_headers": {},
+      "cached_per_call": [
+        0
+      ],
+      "uncached_per_call": [
+        10048
+      ]
+    }
+  },
+  "affinity_probe": {
+    "coral": {
+      "affinity_uuid": "c62b505d-ecec-448e-9e46-8f258a7ad13f",
+      "5k": [
+        {
+          "status": 200,
+          "prompt_tokens": 4456,
+          "cached_tokens": 0
+        },
+        {
+          "status": 200,
+          "prompt_tokens": 4456,
+          "cached_tokens": 4352
+        },
+        {
+          "status": 200,
+          "prompt_tokens": 4456,
+          "cached_tokens": 4352
+        }
+      ],
+      "20k": [
+        {
+          "status": 200,
+          "prompt_tokens": 17786,
+          "cached_tokens": 4352
+        },
+        {
+          "status": 200,
+          "prompt_tokens": 17786,
+          "cached_tokens": 17664
+        },
+        {
+          "status": 200,
+          "prompt_tokens": 17786,
+          "cached_tokens": 17664
+        }
+      ]
+    },
+    "baseten": {
+      "affinity_uuid": "c49d7ac3-b605-4629-93e1-aadc3a40054c",
+      "5k": [
+        {
+          "status": 200,
+          "prompt_tokens": 4483,
+          "cached_tokens": 0
+        },
+        {
+          "status": 200,
+          "prompt_tokens": 4483,
+          "cached_tokens": 0
+        },
+        {
+          "status": 200,
+          "prompt_tokens": 4483,
+          "cached_tokens": 0
+        }
+      ],
+      "20k": [
+        {
+          "status": 200,
+          "prompt_tokens": 17813,
+          "cached_tokens": 0
+        },
+        {
+          "status": 200,
+          "prompt_tokens": 17813,
+          "cached_tokens": 0
+        },
+        {
+          "status": 200,
+          "prompt_tokens": 17813,
+          "cached_tokens": 0
+        }
+      ]
+    }
+  }
+}

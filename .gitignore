@@ -6,10 +6,9 @@ __pycache__/
 .pytest_cache/
 build/
 dist/
-# Benchmark run artifacts contain full transcripts / workspaces; keep them local.
+# Per-run workspaces, transcripts and captured request bodies stay local.
+# Raw results (results/raw/), preflight evidence and charts ARE committed.
 runs/
-results/raw/
-results/preflight/
-results/charts/
+.DS_Store
 node_modules/
 .opencode/

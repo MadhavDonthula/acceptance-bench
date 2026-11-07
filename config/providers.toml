@@ -35,8 +35,9 @@ price_input = 0.60
 price_cached_read = 0.014
 price_output = 2.40
 
-# OPTIONAL third arm — NOT run yet (not in the interleaved run plan). Baseten's
-# September snapshot, for a future snapshot-sensitivity comparison vs the Oct-17
+# Third arm (Baseten's September snapshot). Added to the pre-registration before
+# the main run and run as arm C (ARMS=coral,baseten,baseten_sept). `enabled` is not
+# read by the harness; the ARMS env var controls which arms run. Compared vs the Oct-17
 # slug. Same key/prices/tier as the baseten arm; only the snapshot differs.
 [providers.baseten_sept]
 base_url = "https://inference.baseten.co/v1"

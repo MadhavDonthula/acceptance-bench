@@ -1,0 +1,103 @@
+{
+  "token_totals": {
+    "model": "deepseek-ai/DeepSeek-V4.1-Flash-1017-Fast",
+    "cached": 876288,
+    "uncached": 849185,
+    "output": 30942
+  },
+  "computed_with_discount": 0.5960398320000001,
+  "computed_no_discount": 1.1095445999999998,
+  "usage_api": {
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "start_time": "2026-11-05T00:00:00Z",
+          "end_time": "2026-11-06T00:00:00Z",
+          "results": [
+            {
+              "api_key_prefix": null,
+              "user_id": null,
+              "model": "deepseek-ai/DeepSeek-V4.1-Flash-1017-Fast",
+              "team_id": null,
+              "input_tokens": 2313545,
+              "cached_input_tokens": 1116160,
+              "uncached_input_tokens": 1197385,
+              "output_tokens": 33048,
+              "request_count": 145
+            },
+            {
+              "api_key_prefix": null,
+              "user_id": null,
+              "model": "deepseek-ai/DeepSeek-V4.1-Flash",
+              "team_id": null,
+              "input_tokens": 53439,
+              "cached_input_tokens": 35328,
+              "uncached_input_tokens": 18111,
+              "output_tokens": 48,
+              "request_count": 3
+            },
+            {
+              "api_key_prefix": null,
+              "user_id": null,
+              "model": "deepseek-ai/DeepSeek-V4.1-Flash-Fast",
+              "team_id": null,
+              "input_tokens": 53439,
+              "cached_input_tokens": 52992,
+              "uncached_input_tokens": 447,
+              "output_tokens": 48,
+              "request_count": 3
+            },
+            {
+              "api_key_prefix": null,
+              "user_id": null,
+              "model": "zai-org/GLM-5.3",
+              "team_id": null,
+              "input_tokens": 53376,
+              "cached_input_tokens": 35456,
+              "uncached_input_tokens": 17920,
+              "output_tokens": 12,
+              "request_count": 3
+            }
+          ]
+        }
+      ],
+      "pagination": {
+        "has_more": false,
+        "cursor": null
+      }
+    }
+  },
+  "billing_api": {
+    "params": {
+      "start_time": "2026-11-05T00:00:00Z",
+      "end_time": "2026-11-06T00:00:00Z"
+    },
+    "status": 200,
+    "body": {
+      "items": [
+        {
+          "date": "2026-11-04",
+          "results": []
+        },
+        {
+          "date": "2026-11-05",
+          "results": [
+            {
+              "api_key_prefixes": null,
+              "user_id": null,
+              "model": null,
+              "service_tier": null,
+              "team_id": null,
+              "subtotal": "0.850340564"
+            }
+          ]
+        }
+      ],
+      "pagination": {
+        "has_more": false,
+        "cursor": null
+      }
+    }
+  }
+}

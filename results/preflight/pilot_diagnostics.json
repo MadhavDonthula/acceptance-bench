@@ -1,0 +1,123 @@
+{
+  "step1_decode_validity": {
+    "coral": {
+      "n_calls": 319,
+      "n_calls_decode_ge200vis": 55,
+      "decode_tok_s_incl_reasoning_p50": 3324.529948851985,
+      "decode_tok_s_visible_only_p50": 2611.6110539121723,
+      "decode_tok_s_incl_reasoning_p95": 249220.96038584353,
+      "decode_tok_s_visible_only_p95": 225094.52238605055,
+      "pilot_calls_with_split_fields": 319,
+      "pilot_streamed_reasoning_deltas_total": 20567,
+      "note": ""
+    },
+    "baseten": {
+      "n_calls": 303,
+      "n_calls_decode_ge200vis": 48,
+      "decode_tok_s_incl_reasoning_p50": 9263.840150224736,
+      "decode_tok_s_visible_only_p50": 8351.495438995262,
+      "decode_tok_s_incl_reasoning_p95": 1048625.0883597261,
+      "decode_tok_s_visible_only_p95": 1008330.2854164422,
+      "pilot_calls_with_split_fields": 303,
+      "pilot_streamed_reasoning_deltas_total": 14871,
+      "note": ""
+    }
+  },
+  "step3_speed_vs_rounds": {
+    "coral": {
+      "rounds": 25,
+      "agent_time_per_round_p50": 9.392,
+      "agent_time_per_round_p95": 33.5792,
+      "model_latency_per_call_p50": 0.5030503330053762,
+      "model_latency_per_call_p95": 2.919388516395704,
+      "opencode_startup_per_round_p50": 0.835595,
+      "opencode_startup_per_round_p95": 0.9545916
+    },
+    "baseten": {
+      "rounds": 20,
+      "agent_time_per_round_p50": 13.721499999999999,
+      "agent_time_per_round_p95": 24.392450000000004,
+      "model_latency_per_call_p50": 0.438430458001676,
+      "model_latency_per_call_p95": 1.4680804297982826,
+      "opencode_startup_per_round_p50": 0.712215,
+      "opencode_startup_per_round_p95": 0.88187205
+    }
+  },
+  "step4_cost_decomposition": {
+    "tokens": {
+      "coral": {
+        "U": 317897,
+        "C": 7404544,
+        "O": 127735
+      },
+      "baseten": {
+        "U": 2097652,
+        "C": 5479168,
+        "O": 106958
+      }
+    },
+    "prices": {
+      "coral": {
+        "input": 0.45,
+        "cached": 0.009,
+        "output": 1.8
+      },
+      "baseten": {
+        "input": 0.6,
+        "cached": 0.014,
+        "output": 2.4
+      }
+    },
+    "coral_own_cost": 0.43961754599999997,
+    "baseten_own_cost": 1.5919987519999999,
+    "baseten_tokens_at_coral_prices": 1.185780312,
+    "coral_tokens_at_baseten_prices": 0.600965816,
+    "gap_baseten_minus_coral": 1.1523812059999998,
+    "price_effect": 0.40621843999999996,
+    "token_cache_effect": 0.7461627659999999,
+    "price_effect_pct_of_gap": 35.250352737876916,
+    "token_cache_effect_pct_of_gap": 64.74964726212309
+  },
+  "step5_cache_misses": {
+    "coral": {
+      "n_runs": 10,
+      "hit_rate_all_calls": 0.958834648267303,
+      "hit_rate_excluding_first_call": 0.9589166819262922,
+      "first_calls_cached_tokens": 5120,
+      "first_calls_uncached_tokens": 880,
+      "first_calls_share_of_uncached": 0.0027681922132011313
+    },
+    "baseten": {
+      "n_runs": 10,
+      "hit_rate_all_calls": 0.7231487616176707,
+      "hit_rate_excluding_first_call": 0.723249427736266,
+      "first_calls_cached_tokens": 3584,
+      "first_calls_uncached_tokens": 2426,
+      "first_calls_share_of_uncached": 0.0011565312072736565
+    }
+  },
+  "step2_longgen_probe": {
+    "coral": {
+      "reps": 5,
+      "visible_decode_tok_s_p50": 389.1028144681569,
+      "output_tokens_median": 684,
+      "reasoning_tokens_seen": [
+        0
+      ],
+      "streamed_reasoning_deltas_total": 0,
+      "tokens_per_content_chunk_p50": 2.054054054054054,
+      "n_content_deltas_median": 333
+    },
+    "baseten": {
+      "reps": 5,
+      "visible_decode_tok_s_p50": 646.3525320829739,
+      "output_tokens_median": 803,
+      "reasoning_tokens_seen": [
+        0
+      ],
+      "streamed_reasoning_deltas_total": 0,
+      "tokens_per_content_chunk_p50": 1.944309927360775,
+      "n_content_deltas_median": 413
+    }
+  }
+}

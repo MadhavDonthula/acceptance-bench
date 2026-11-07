@@ -1,0 +1,224 @@
+{
+  "window_start": "2026-11-05T03:41:44.572449+00:00",
+  "window_end": "2026-11-05T03:41:57.712527+00:00",
+  "step2_multi_slug": {
+    "deepseek-ai/DeepSeek-V4.1-Flash-1017-Fast": {
+      "affinity_uuid": "f6714c2c-a8ec-4310-b173-dcb398a36f5c",
+      "runs": [
+        {
+          "status": 200,
+          "prompt_tokens": 17813,
+          "cached_tokens": 4352,
+          "ttft_s": 0.412,
+          "request_id_headers": {
+            "x-baseten-request-id": "54ca701a1a9cc5bb779fd8e63e2539bf5b90d"
+          }
+        },
+        {
+          "status": 200,
+          "prompt_tokens": 17813,
+          "cached_tokens": 17664,
+          "ttft_s": 0.33,
+          "request_id_headers": {
+            "x-baseten-request-id": "54ca701a1a9cc5d417531af118df11b99b1b6"
+          }
+        },
+        {
+          "status": 200,
+          "prompt_tokens": 17813,
+          "cached_tokens": 4352,
+          "ttft_s": 0.677,
+          "request_id_headers": {
+            "x-baseten-request-id": "54ca701a1a9cc5f817d869d3e1d2d542880a1"
+          }
+        }
+      ]
+    },
+    "deepseek-ai/DeepSeek-V4.1-Flash-Fast": {
+      "affinity_uuid": "fad4ea6e-737a-4783-918c-d060a5060a52",
+      "runs": [
+        {
+          "status": 200,
+          "prompt_tokens": 17813,
+          "cached_tokens": 17664,
+          "ttft_s": 0.872,
+          "request_id_headers": {
+            "x-baseten-request-id": "54ca701a1a9cc616076e8babb1fddf0754e98"
+          }
+        },
+        {
+          "status": 200,
+          "prompt_tokens": 17813,
+          "cached_tokens": 17664,
+          "ttft_s": 0.715,
+          "request_id_headers": {
+            "x-baseten-request-id": "54ca701a1a9cc649a78adbc282e933e87a961"
+          }
+        },
+        {
+          "status": 200,
+          "prompt_tokens": 17813,
+          "cached_tokens": 17664,
+          "ttft_s": 0.525,
+          "request_id_headers": {
+            "x-baseten-request-id": "54ca701a1a9cc675e757089801aa5e4114420"
+          }
+        }
+      ]
+    },
+    "deepseek-ai/DeepSeek-V4.1-Flash": {
+      "affinity_uuid": "7cd9c57a-5e73-4a9a-aea5-9848d0abed64",
+      "runs": [
+        {
+          "status": 200,
+          "prompt_tokens": 17813,
+          "cached_tokens": 0,
+          "ttft_s": 1.376,
+          "request_id_headers": {
+            "x-baseten-request-id": "54ca701a1a9cc69727d0399edeb078cda6561"
+          }
+        },
+        {
+          "status": 200,
+          "prompt_tokens": 17813,
+          "cached_tokens": 17664,
+          "ttft_s": 0.524,
+          "request_id_headers": {
+            "x-baseten-request-id": "54ca701a1a9cc6eca7c11af5167d28bdaab56"
+          }
+        },
+        {
+          "status": 200,
+          "prompt_tokens": 17813,
+          "cached_tokens": 17664,
+          "ttft_s": 0.34,
+          "request_id_headers": {
+            "x-baseten-request-id": "54ca701a1a9cc70d277b385929222bccbfe2d"
+          }
+        }
+      ]
+    },
+    "zai-org/GLM-5.3": {
+      "affinity_uuid": "ca827cf0-0586-4bb1-bcb6-64fde3f828da",
+      "runs": [
+        {
+          "status": 200,
+          "prompt_tokens": 17792,
+          "cached_tokens": 0,
+          "ttft_s": 3.125,
+          "request_id_headers": {
+            "x-baseten-request-id": "54ca701a1a9cc722176b680639c7123c5f111"
+          }
+        },
+        {
+          "status": 200,
+          "prompt_tokens": 17792,
+          "cached_tokens": 17728,
+          "ttft_s": 1.468,
+          "request_id_headers": {
+            "x-baseten-request-id": "54ca701a1a9cc7e967106b0ed2a6c710e3f8d"
+          }
+        },
+        {
+          "status": 200,
+          "prompt_tokens": 17792,
+          "cached_tokens": 17728,
+          "ttft_s": 1.196,
+          "request_id_headers": {
+            "x-baseten-request-id": "54ca701a1a9cc8466712a8c9ff80ec9918771"
+          }
+        }
+      ]
+    }
+  },
+  "step3_openai_sdk": {
+    "slug": "deepseek-ai/DeepSeek-V4.1-Flash-1017-Fast",
+    "affinity_uuid": "ed3293b6-8466-42fe-bdce-f5b8d205010b",
+    "runs": [
+      {
+        "prompt_tokens": 17813,
+        "cached_tokens": 17664,
+        "ttft_s": 0.501
+      },
+      {
+        "prompt_tokens": 17813,
+        "cached_tokens": 17664,
+        "ttft_s": 0.261
+      },
+      {
+        "prompt_tokens": 17813,
+        "cached_tokens": 4352,
+        "ttft_s": 0.333
+      }
+    ]
+  },
+  "step4_usage_api": {
+    "endpoint": "https://api.baseten.co/v1/model_apis/usage",
+    "attempts": [
+      {
+        "params": {
+          "start": "2026-11-05T03:41:44.572449+00:00",
+          "end": "2026-11-05T03:41:57.712527+00:00",
+          "bucket": "1m",
+          "group_by": "model"
+        },
+        "status": 400,
+        "body": {
+          "code": "VALIDATION_ERROR",
+          "message": "Provide a start_time, or a cursor to resume a previous page."
+        }
+      },
+      {
+        "params": {
+          "start_time": "2026-11-05T03:41:44.572449+00:00",
+          "end_time": "2026-11-05T03:41:57.712527+00:00",
+          "granularity": "minute",
+          "group_by": "model"
+        },
+        "status": 200,
+        "body": {
+          "items": [
+            {
+              "start_time": "2026-11-05T00:00:00Z",
+              "end_time": "2026-11-06T00:00:00Z",
+              "results": [
+                {
+                  "api_key_prefix": null,
+                  "user_id": null,
+                  "model": "deepseek-ai/DeepSeek-V4.1-Flash-1017-Fast",
+                  "team_id": null,
+                  "input_tokens": 135347,
+                  "cached_input_tokens": 0,
+                  "uncached_input_tokens": 135347,
+                  "output_tokens": 394,
+                  "request_count": 17
+                }
+              ]
+            }
+          ],
+          "pagination": {
+            "has_more": false,
+            "cursor": null
+          }
+        }
+      }
+    ]
+  },
+  "step5_request_ids": [
+    {
+      "slug": "deepseek-ai/DeepSeek-V4.1-Flash-1017-Fast",
+      "header": "x-baseten-request-id",
+      "value": "54ca701a1a9cc5bb779fd8e63e2539bf5b90d"
+    },
+    {
+      "slug": "deepseek-ai/DeepSeek-V4.1-Flash-1017-Fast",
+      "header": "x-baseten-request-id",
+      "value": "54ca701a1a9cc5d417531af118df11b99b1b6"
+    },
+    {
+      "slug": "deepseek-ai/DeepSeek-V4.1-Flash-1017-Fast",
+      "header": "x-baseten-request-id",
+      "value": "54ca701a1a9cc5f817d869d3e1d2d542880a1"
+    }
+  ]
+}

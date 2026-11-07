@@ -1,0 +1,31 @@
+{
+  "slug": "deepseek-ai/DeepSeek-V4.1-Flash-1017-Fast",
+  "status": 200,
+  "body": {
+    "name": "deepseek-ai/DeepSeek-V4.1-Flash-1017-Fast",
+    "display_name": "DeepSeek V4.1 Flash 1017 Fast",
+    "description": "Fast version - same precision as normal endpoint.\r\n\r\nA 552B-parameter mixture-of-experts model with native vision and 1M-token context, activating just 8B parameters during prefill and 16B during decode for efficient reasoning, coding, and agentic workloads.",
+    "model_family": "DeepSeek",
+    "release_date": "2026-10-17",
+    "invoke_url": "https://inference.baseten.co",
+    "context_length": 1048576,
+    "cost_per_million_input_tokens": "0.60",
+    "cost_per_million_output_tokens": "2.40",
+    "rate_limits": [
+      {
+        "type": "TOKEN",
+        "unit": "MINUTE",
+        "threshold": 2097154
+      },
+      {
+        "type": "REQUEST",
+        "unit": "MINUTE",
+        "threshold": 120
+      }
+    ],
+    "org_details": {
+      "added_at": "2026-11-05T03:25:56.959Z",
+      "last_used_at": "2026-11-05T03:25:57.123Z"
+    }
+  }
+}

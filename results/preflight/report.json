@@ -1,0 +1,304 @@
+{
+  "started": "2026-11-05T03:27:11.644533+00:00",
+  "settings": {
+    "temperature": 0.0,
+    "max_tokens": 8192,
+    "reasoning_effort": "high"
+  },
+  "models": {
+    "coral": {
+      "model": "deepseek-v4.1-flash-fast"
+    },
+    "baseten": {
+      "model": "deepseek-ai/DeepSeek-V4.1-Flash-1017-Fast"
+    }
+  },
+  "keys": {
+    "coral": {
+      "key_present": true,
+      "key_env": "CORALBRICKS_API_KEY",
+      "models_status": 200,
+      "model_ids_sample": [
+        "deepseek-v4.1-flash-fast",
+        "deepseek-v4.1-flash"
+      ]
+    },
+    "baseten": {
+      "key_present": true,
+      "key_env": "BASETEN_API_KEY",
+      "models_status": 200,
+      "model_ids_sample": [
+        "openai/gpt-oss-120b",
+        "nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B",
+        "zai-org/GLM-5.2",
+        "deepseek-ai/DeepSeek-V4-Flash-0731",
+        "zai-org/GLM-5.2-Fast",
+        "moonshotai/Kimi-K3",
+        "deepseek-ai/DeepSeek-V4-Pro-0813",
+        "zai-org/GLM-5.3-Flash",
+        "zai-org/GLM-5.3",
+        "zai-org/GLM-5.3-Fast",
+        "deepseek-ai/DeepSeek-V4.1-Flash",
+        "deepseek-ai/DeepSeek-V4.1-Flash-Fast",
+        "nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B",
+        "reflection/Beam-1.0",
+        "meta-models/muse-spark-open",
+        "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+        "deepseek-ai/DeepSeek-V4.1-Flash-1017-Fast",
+        "decision-models/baseten-elephant-9b-latest",
+        "decision-models/baseten-mammoth-27b-latest",
+        "decision-models/baseten-joey-2b-latest"
+      ]
+    }
+  },
+  "tiny_chat": {
+    "coral": {
+      "status": 200,
+      "usage_raw": {
+        "prompt_tokens": 37,
+        "total_tokens": 50,
+        "completion_tokens": 13,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 37,
+          "billable_cache_write_tokens": 37,
+          "cache_write_blocks": 3
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 11
+        },
+        "cost": 4.005e-05,
+        "cost_details": {
+          "currency": "USD",
+          "input": 1.665e-05,
+          "cached_input": 0.0,
+          "cache_write": 0.0,
+          "output": 2.34e-05
+        }
+      },
+      "usage_parsed": {
+        "input_tokens": 37,
+        "cached_tokens": 0,
+        "cache_write_tokens": 37,
+        "output_tokens": 13,
+        "reasoning_tokens": 11,
+        "cache_field": "prompt_tokens_details.cached_tokens",
+        "uncached_tokens": 37,
+        "cache_hit_ratio": 0.0
+      }
+    },
+    "baseten": {
+      "status": 200,
+      "usage_raw": {
+        "prompt_tokens": 38,
+        "completion_tokens": 13,
+        "total_tokens": 51,
+        "prompt_tokens_details": {
+          "audio_tokens": 0,
+          "cached_tokens": 0
+        },
+        "completion_tokens_details": {
+          "accepted_prediction_tokens": 10,
+          "audio_tokens": 0,
+          "reasoning_tokens": 10,
+          "rejected_prediction_tokens": 5
+        }
+      },
+      "usage_parsed": {
+        "input_tokens": 38,
+        "cached_tokens": 0,
+        "cache_write_tokens": -1,
+        "output_tokens": 13,
+        "reasoning_tokens": 10,
+        "cache_field": "prompt_tokens_details.cached_tokens",
+        "uncached_tokens": 38,
+        "cache_hit_ratio": 0.0
+      }
+    }
+  },
+  "cache": {
+    "coral": {
+      "first": {
+        "status": 200,
+        "usage_raw": {
+          "prompt_tokens": 4486,
+          "total_tokens": 4501,
+          "completion_tokens": 15,
+          "prompt_tokens_details": {
+            "cached_tokens": 4352,
+            "cache_write_tokens": 134,
+            "billable_cache_write_tokens": 134,
+            "cache_write_blocks": 3
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 12
+          },
+          "cost": 0.00012647,
+          "cost_details": {
+            "currency": "USD",
+            "input": 6.03e-05,
+            "cached_input": 3.917e-05,
+            "cache_write": 0.0,
+            "output": 2.7e-05
+          }
+        },
+        "usage_parsed": {
+          "input_tokens": 4486,
+          "cached_tokens": 4352,
+          "cache_write_tokens": 134,
+          "output_tokens": 15,
+          "reasoning_tokens": 12,
+          "cache_field": "prompt_tokens_details.cached_tokens",
+          "uncached_tokens": 134,
+          "cache_hit_ratio": 0.9701
+        }
+      },
+      "second": {
+        "status": 200,
+        "usage_raw": {
+          "prompt_tokens": 4486,
+          "total_tokens": 4501,
+          "completion_tokens": 15,
+          "prompt_tokens_details": {
+            "cached_tokens": 4352,
+            "cache_write_tokens": 134,
+            "billable_cache_write_tokens": 134,
+            "cache_write_blocks": 3
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 12
+          },
+          "cost": 0.00012647,
+          "cost_details": {
+            "currency": "USD",
+            "input": 6.03e-05,
+            "cached_input": 3.917e-05,
+            "cache_write": 0.0,
+            "output": 2.7e-05
+          }
+        },
+        "usage_parsed": {
+          "input_tokens": 4486,
+          "cached_tokens": 4352,
+          "cache_write_tokens": 134,
+          "output_tokens": 15,
+          "reasoning_tokens": 12,
+          "cache_field": "prompt_tokens_details.cached_tokens",
+          "uncached_tokens": 134,
+          "cache_hit_ratio": 0.9701
+        }
+      },
+      "cached_first": 4352,
+      "cached_second": 4352,
+      "cache_grew": false
+    },
+    "baseten": {
+      "first": {
+        "status": 200,
+        "usage_raw": {
+          "prompt_tokens": 4487,
+          "completion_tokens": 15,
+          "total_tokens": 4502,
+          "prompt_tokens_details": {
+            "audio_tokens": 0,
+            "cached_tokens": 0
+          },
+          "completion_tokens_details": {
+            "accepted_prediction_tokens": 11,
+            "audio_tokens": 0,
+            "reasoning_tokens": 11,
+            "rejected_prediction_tokens": 4
+          }
+        },
+        "usage_parsed": {
+          "input_tokens": 4487,
+          "cached_tokens": 0,
+          "cache_write_tokens": -1,
+          "output_tokens": 15,
+          "reasoning_tokens": 11,
+          "cache_field": "prompt_tokens_details.cached_tokens",
+          "uncached_tokens": 4487,
+          "cache_hit_ratio": 0.0
+        }
+      },
+      "second": {
+        "status": 200,
+        "usage_raw": {
+          "prompt_tokens": 4487,
+          "completion_tokens": 15,
+          "total_tokens": 4502,
+          "prompt_tokens_details": {
+            "audio_tokens": 0,
+            "cached_tokens": 0
+          },
+          "completion_tokens_details": {
+            "accepted_prediction_tokens": 11,
+            "audio_tokens": 0,
+            "reasoning_tokens": 11,
+            "rejected_prediction_tokens": 4
+          }
+        },
+        "usage_parsed": {
+          "input_tokens": 4487,
+          "cached_tokens": 0,
+          "cache_write_tokens": -1,
+          "output_tokens": 15,
+          "reasoning_tokens": 11,
+          "cache_field": "prompt_tokens_details.cached_tokens",
+          "uncached_tokens": 4487,
+          "cache_hit_ratio": 0.0
+        }
+      },
+      "cached_first": 0,
+      "cached_second": 0,
+      "cache_grew": false
+    }
+  },
+  "baseten_rate_limits": {
+    "slug": "deepseek-ai/DeepSeek-V4.1-Flash-1017-Fast",
+    "status": 200,
+    "rpm": 120,
+    "tpm": 2097154,
+    "raw": {
+      "name": "deepseek-ai/DeepSeek-V4.1-Flash-1017-Fast",
+      "display_name": "DeepSeek V4.1 Flash 1017 Fast",
+      "description": "Fast version - same precision as normal endpoint.\r\n\r\nA 552B-parameter mixture-of-experts model with native vision and 1M-token context, activating just 8B parameters during prefill and 16B during decode for efficient reasoning, coding, and agentic workloads.",
+      "model_family": "DeepSeek",
+      "release_date": "2026-10-17",
+      "invoke_url": "https://inference.baseten.co",
+      "context_length": 1048576,
+      "cost_per_million_input_tokens": "0.60",
+      "cost_per_million_output_tokens": "2.40",
+      "rate_limits": [
+        {
+          "type": "TOKEN",
+          "unit": "MINUTE",
+          "threshold": 2097154
+        },
+        {
+          "type": "REQUEST",
+          "unit": "MINUTE",
+          "threshold": 120
+        }
+      ],
+      "org_details": {
+        "added_at": "2026-11-05T03:25:56.959Z",
+        "last_used_at": "2026-11-05T03:25:57.123Z"
+      }
+    },
+    "tpm_below_threshold": false
+  },
+  "opencode_smoke": {
+    "coral": {
+      "rc": 0,
+      "hello_created": true,
+      "stdout_tail": "\u001b[92m\u001b[1m| \u001b[0m\u001b[90m Write    \u001b[0mhello.txt\n\u001b[91m\u001b[1mError: \u001b[0mError: [DecimalError] Invalid argument: [object Object]\nError: [DecimalError] Invalid argument: [object Object]\u001b[0m\n"
+    },
+    "baseten": {
+      "rc": 0,
+      "hello_created": true,
+      "stdout_tail": "\u001b[0m\n\n\u001b[0m\n\u001b[92m\u001b[1m| \u001b[0m\u001b[90m Write    \u001b[0mhello.txt\n\u001b[91m\u001b[1mError: \u001b[0mError: [DecimalError] Invalid argument: [object Object]\nError: [DecimalError] Invalid argument: [object Object]\u001b[0m\n"
+    }
+  },
+  "result": "completed (review output; operator go-ahead required for pilot)"
+}

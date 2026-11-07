@@ -1,0 +1,31 @@
+[01:43:03] proxy up; Coral-only cache subexperiment (budget $2.5)
+[01:43:04] calibration: 102057 chars -> 31050 tokens (3.29 chars/token)
+[01:43:07] sanity immediate-resend cached_fraction=0.7915
+[01:43:07] TEST 1 review-delay: gaps=[10, 60, 300, 900, 1800] reps=3 (parallel, ~1800s wall)
+[02:13:11]   gap    10s -> mean cached_fraction 84.7%
+[02:13:11]   gap    60s -> mean cached_fraction 90.6%
+[02:13:11]   gap   300s -> mean cached_fraction 84.2%
+[02:13:11]   gap   900s -> mean cached_fraction 99.4%
+[02:13:11]   gap  1800s -> mean cached_fraction 92.6%
+[02:13:11] TEST 2 context-growth: sizes=[20000, 100000, 300000] reps=3
+[02:13:15]   size ~20000: miss TTFT 0.7384s hit TTFT 0.2973s hit-cached 81%
+[02:13:22]   size ~100000: miss TTFT 2.0299s hit TTFT 0.4481s hit-cached 97%
+[02:13:40]   size ~300000: miss TTFT 4.6183s hit TTFT 0.9095s hit-cached 100%
+[02:13:40] TEST 3 warm fan-out: prime ~30k then 5 concurrent
+[02:13:42]   warm fan-out hit-rate 95% TTFT [0.294, 0.8189, 0.8315]s
+[02:13:42] TEST 4 cold fan-out: 5 concurrent on a NEW unprimed ~30k prefix
+[02:13:43]   cold fan-out: 3/8 requests shared prefill (cached>50%); cached fractions [0, 0.85, 0.97, 0, 0.82]
+[02:13:43] TEST 5 branch/rollback: 10 turns ~3k each, branch from turn 5
+[02:13:47]   branch: shared 5-turn prefix ~15243 tok; branch cached 15104 / 18305 (83%)
+[02:13:47] TEST 6 prefix-bust: positions=[0.1, 0.5, 0.9] reps=3
+[02:13:48]   rep0 bust@10% -> cached 0 / 30460 tok
+[02:13:49]   rep0 bust@50% -> cached 8192 / 30460 tok
+[02:13:49]   rep0 bust@90% -> cached 24576 / 30460 tok
+[02:13:51]   rep1 bust@10% -> cached 0 / 30301 tok
+[02:13:51]   rep1 bust@50% -> cached 8192 / 30301 tok
+[02:13:52]   rep1 bust@90% -> cached 21248 / 30301 tok
+[02:13:53]   rep2 bust@10% -> cached 0 / 30424 tok
+[02:13:54]   rep2 bust@50% -> cached 8192 / 30424 tok
+[02:13:55]   rep2 bust@90% -> cached 24576 / 30424 tok
+[02:13:55] DONE. spend $1.0220 over 84 calls. stop_reason=None
+[02:13:55] Wrote /Users/madhavdonthula/code/acceptance-bench/results/CACHE_SUBEXPERIMENT.md
