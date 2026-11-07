@@ -827,3 +827,48 @@ history proves the order of decisions.
 - analyze.py now auto-labels n≥10 as the PRE-REGISTERED MAIN EXPERIMENT (title,
   banner, limitations), reports 3-arm table + bootstrap CIs + trace-replay +
   refreshed diagnostics. Pilot artifacts archived under results/raw/archive/.
+
+---
+
+## 2026-11-07 — CACHING EXTENSION (why, how bounded, Coral-only by choice)
+
+### Why extend into caching
+- **Observed:** The main experiment's headline is a cache story: Coral's cost
+  advantage is ~65% token/cache behavior vs ~35% price, and Coral's cache hit rate
+  (95.9%) far exceeds Baseten's (72.3%). But the experiment never characterized the
+  cache *mechanism*: how the miss penalty scales with prompt size, how long a cache
+  entry survives idle, how it behaves under fan-out / branching / single-token
+  busts. Those determine whether caching helps the *acceptance loop* (latency),
+  not just the bill.
+- **Decision:** Add a bounded caching study in three layers. **LAYER A** = offline
+  regression/classification of ALREADY-RECORDED data (the only new calls are Coral
+  `/v1/models` network pings). **LAYER B** = NEW active probes, **CoralBricks
+  ONLY**. **LAYER C** = billing reconciliation, NO API calls.
+- **Effect on next step:** Build harness/cache_analysis.py (A),
+  harness/cache_subexperiment.py (B), harness/billing_reconciliation.py (C). New
+  committable charts under results/cache_charts/ (results/charts/ is gitignored).
+
+### How the work is bounded
+- **Scope:** effects on the ACCEPTANCE LOOP only. We do NOT modify the
+  main-experiment results, SUMMARY.md, or PREREGISTRATION.md — only NEW files are
+  written (CACHE_ANALYSIS.md, PREREGISTRATION_CACHE.md, CACHE_SUBEXPERIMENT.md,
+  BILLING_RECONCILIATION.md, CACHE_REPORT_SHORT.md, SERIES_NOTES.md).
+- **Budget:** Layer B carries a HARD $2.50 budget with stop rules (abort on
+  projected overspend, repeated 429/5xx, or a result that contradicts the main
+  experiment in a way that implies a measurement bug). Layer B is pre-registered
+  (PREREGISTRATION_CACHE.md committed BEFORE any Layer B call).
+- **No human-paced loop** in this episode (would burn wall-clock budget); recorded
+  as a future episode in SERIES_NOTES.md.
+
+### New experiments are CoralBricks-only BY CHOICE
+- **HARD RULE (operator):** ZERO new API calls to Baseten — no inference, no
+  /v1/models, no usage/billing endpoints. Existing recorded Baseten data in
+  results/raw/ may be analyzed offline, but every NEW call goes to Coral only.
+- **Consequence (logged honestly):** any network-adjusted or active-probe
+  comparison for Baseten is therefore **UNMEASURED by choice**, not by failure.
+  Layer A offline regressions still cover all three arms from recorded data; only
+  the live network baseline (Layer A step 2) and all of Layer B are Coral-only.
+- **Key handling:** the Coral key is loaded ONLY from
+  ~/code/acceptance-bench/.env via proxy.config.load_dotenv (never copied
+  elsewhere). coral-probe timing logic is ported into acceptance-bench rather than
+  importing the external repo.
